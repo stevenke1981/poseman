@@ -57,17 +57,57 @@
         <select id="presetSelect">
           <option value="">選擇姿勢…</option>
         </select>
-        <p id="tip">點選人偶關節後：直接拖曳人偶旋轉關節，或用滑桿微調。空白處拖曳 = 旋轉視角，滾輪 / 雙指 = 縮放。</p>
+
+        <label for="propSelect">物品 Props</label>
+        <select id="propSelect">
+          <option value="">加入物品…</option>
+        </select>
+        <div class="btnrow">
+          <button id="rotatePropBtn" type="button">旋轉物品</button>
+          <button id="deletePropBtn" type="button">刪除物品</button>
+        </div>
+
+        <label>檔案 Scene</label>
+        <div class="btnrow">
+          <button id="saveFileBtn" type="button">存檔</button>
+          <button id="loadFileBtn" type="button">讀檔</button>
+        </div>
+        <input type="file" id="fileInput" accept=".json,application/json" hidden />
+
+        <p id="tip">點選關節後拖曳或滑桿微調；「移動模式」拖曳人物／物品擺放位置。物品加入後可旋轉／刪除。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳 = 旋轉視角。</p>
       </aside>
 
-      <div id="hint" class="ui-hide">拖曳人偶關節擺姿勢 ・ 空白處拖曳旋轉視角</div>
+      <div id="hint" class="ui-hide">拖曳關節擺姿勢 ・ 移動模式拖曳人物/物品 ・ 空白處旋轉視角</div>
+
+      <div id="chat">
+        <div id="chatHead">
+          <span>AI 助手</span>
+          <button id="aiSettingsBtn" type="button" title="AI API 設定">⚙</button>
+        </div>
+        <div id="aiSettings" hidden>
+          <input id="aiBaseUrl" placeholder="Base URL（如 https://api.openai.com/v1）" />
+          <input id="aiModel" placeholder="模型（如 gpt-4o-mini）" />
+          <input id="aiKey" type="password" placeholder="API Key（留空＝不需金鑰）" />
+          <button id="aiSaveBtn" type="button">儲存設定</button>
+        </div>
+        <div id="chatLog"></div>
+        <div id="chatStatus"></div>
+        <div id="chatInputRow">
+          <input id="chatInput" placeholder="例：把左手舉高、放一張椅子" />
+          <button id="chatSend" type="button">送出</button>
+        </div>
+      </div>
 
       <footer id="bottombar">
         <div class="left-group">
           <button id="addBtn" class="round ui-hide" type="button" title="加入人物">＋</button>
           <button id="removeBtn" class="round ui-hide" type="button" title="移除人物">－</button>
         </div>
-        <button id="previewBtn" class="pill" type="button">預覽模式</button>
+        <div class="center-group">
+          <button id="moveBtn" class="pill ui-hide" type="button">移動模式</button>
+          <button id="previewBtn" class="pill" type="button">預覽模式</button>
+          <button id="aiBtn" class="pill ui-hide" type="button">AI</button>
+        </div>
         <div class="right-group">
           <button id="exportBtn" class="pill" type="button">匯出參考圖</button>
         </div>

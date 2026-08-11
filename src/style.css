@@ -181,9 +181,18 @@ button {
 }
 
 .left-group,
-.right-group {
+.right-group,
+.center-group {
   display: flex;
   gap: 10px;
+}
+
+body.move canvas {
+  cursor: grab;
+}
+
+body.ai-open #hint {
+  display: none;
 }
 
 .round {
@@ -211,4 +220,137 @@ button {
 
 body.preview .ui-hide {
   display: none !important;
+}
+
+/* ---------------------------------------------------------------- AI chat */
+#chat {
+  display: none;
+  position: absolute;
+  left: 10px;
+  bottom: 92px;
+  width: 300px;
+  max-height: min(480px, 62%);
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(24, 26, 32, 0.9);
+  color: #e8eaf2;
+  border-radius: 14px;
+  padding: 10px;
+  backdrop-filter: blur(8px);
+  font-size: 13px;
+}
+
+body.ai-open #chat {
+  display: flex;
+}
+
+body.preview #chat {
+  display: none !important;
+}
+
+#chatHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #aeb4c8;
+}
+
+#aiSettingsBtn {
+  background: #3d414c;
+  color: #e8eaf2;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+#aiSettings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#aiSettings[hidden] {
+  display: none;
+}
+
+#aiSettings input {
+  background: #33363f;
+  color: #eef0f8;
+  border: 1px solid #4a4e59;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 12px;
+}
+
+#aiSettings button {
+  background: #3d414c;
+  color: #e8eaf2;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 12px;
+}
+
+#chatLog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 48px;
+  max-height: 240px;
+}
+
+.msg {
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-width: 88%;
+}
+
+.msg.user {
+  background: #3a4160;
+  align-self: flex-end;
+}
+
+.msg.ai {
+  background: #2c2f38;
+  align-self: flex-start;
+}
+
+.msg.sys {
+  background: #4a3b2c;
+  color: #ffd9a0;
+  align-self: center;
+  max-width: 96%;
+}
+
+#chatStatus {
+  min-height: 14px;
+  font-size: 11px;
+  color: #8d93a8;
+}
+
+#chatInputRow {
+  display: flex;
+  gap: 6px;
+}
+
+#chatInput {
+  flex: 1;
+  min-width: 0;
+  background: #33363f;
+  color: #eef0f8;
+  border: 1px solid #4a4e59;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+}
+
+#chatSend {
+  background: #7f8ff0;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
 }
