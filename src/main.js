@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
 import { buildMannequin, JOINT_NAMES, JOINT_LABELS, DEG } from './mannequin.js';
 import { PRESETS, PRESET_LABELS } from './poses.js';
 import { buildProp, PROP_TYPES } from './props.js';
@@ -77,6 +78,7 @@ function addFigure(female) {
 function removeFigureAt(i) {
   if (figures.length <= 1 || !figures[i]) return;
   const m = figures[i];
+  if (transform.object === m.group) transform.detach();
   scene.remove(m.group);
   figures.splice(i, 1);
   setActiveFigure(figures.includes(activeFigure) ? activeFigure : figures[figures.length - 1]);
@@ -112,6 +114,7 @@ function addProp(type, saved = null) {
 function removeProp(entry) {
   const i = props.indexOf(entry);
   if (i < 0) return;
+  if (transform.object === entry.group) transform.detach();
   scene.remove(entry.group);
   props.splice(i, 1);
   if (selectedProp === entry) selectedProp = null;
@@ -190,27 +193,6 @@ const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 let drag = null;
 let moveMode = false;
-let moveDrag = null;
-// Drag on a camera-facing plane through the object so screen movement maps
-// 1:1 regardless of camera angle (ground-plane projection explodes at shallow views).
-const dragPlane = new THREE.Plane();
-const planeNormal = new THREE.Vector3();
-const grabCenter = new THREE.Vector3();
-const planeHit = new THREE.Vector3();
-
-function beginMoveDrag(obj, centerY) {
-  camera.getWorldDirection(planeNormal);
-  dragPlane.setFromNormalAndCoplanarPoint(
-    planeNormal,
-    grabCenter.set(obj.position.x, centerY, obj.position.z),
-  );
-  if (!raycaster.ray.intersectPlane(dragPlane, planeHit)) return;
-  moveDrag = {
-    obj,
-    dx: obj.position.x - planeHit.x,
-    dz: obj.position.z - planeHit.z,
-  };
-}
 
 function setNdc(e) {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -229,15 +211,15 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   raycaster.setFromCamera(ndc, camera);
   const targets = figures.flatMap((f) => f.pickMeshes).concat(props.flatMap((p) => p.meshes));
   const hit = raycaster.intersectObjects(targets, false)[0];
-  if (!hit) return;
+  if (!hit) {
+    if (moveMode) transform.detach();
+    return;
+  }
 
   const propHit = hit.object.userData.prop;
   if (propHit) {
     selectedProp = propHit;
-    if (!moveMode) return; // outside move mode a prop click just selects; orbit stays on
-    controls.enabled = false;
-    capturePointer(e);
-    beginMoveDrag(propHit.group, 0.3);
+    if (moveMode) transform.attach(propHit.group);
     return;
   }
 
@@ -246,26 +228,16 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   jointSelect.value = activeJointName;
   selectedProp = null;
   setActiveFigure(activeFigure);
+  if (moveMode) {
+    transform.attach(activeFigure.group);
+    return;
+  }
   controls.enabled = false;
   capturePointer(e);
-  if (moveMode) {
-    beginMoveDrag(activeFigure.group, 1.0);
-  } else {
-    drag = { lastX: e.clientX, lastY: e.clientY };
-  }
+  drag = { lastX: e.clientX, lastY: e.clientY };
 });
 
 window.addEventListener('pointermove', (e) => {
-  if (moveDrag) {
-    setNdc(e);
-    raycaster.setFromCamera(ndc, camera);
-    if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
-      moveDrag.obj.position.x = THREE.MathUtils.clamp(planeHit.x + moveDrag.dx, -10, 10);
-      moveDrag.obj.position.z = THREE.MathUtils.clamp(planeHit.z + moveDrag.dz, -10, 10);
-      scheduleSave();
-    }
-    return;
-  }
   if (!drag || !activeFigure) return;
   const j = activeFigure.joints[activeJointName];
   const dx = (e.clientX - drag.lastX) * 0.008;
@@ -280,7 +252,6 @@ window.addEventListener('pointermove', (e) => {
 
 function endDrag() {
   drag = null;
-  moveDrag = null;
   controls.enabled = true;
 }
 window.addEventListener('pointerup', endDrag);
@@ -294,6 +265,17 @@ controls.dampingFactor = 0.08;
 controls.minDistance = 0.8;
 controls.maxDistance = 12;
 controls.maxPolarAngle = Math.PI * 0.52;
+
+// Ground-plane translate gizmo for move mode (pattern from ftsuda/web-poser).
+const transform = new TransformControls(camera, renderer.domElement);
+transform.setMode('translate');
+transform.showY = false;
+transform.setSize(0.8);
+scene.add(transform);
+transform.addEventListener('dragging-changed', (e) => {
+  controls.enabled = !e.value;
+});
+transform.addEventListener('objectChange', scheduleSave);
 
 // ---------------------------------------------------------------- UI events
 jointSelect.addEventListener('change', () => {
@@ -337,13 +319,15 @@ document.getElementById('genderBtn').addEventListener('click', () => {
   const idx = figures.indexOf(activeFigure);
   const pose = extractPose(activeFigure);
   const pos = activeFigure.group.position.clone();
-  scene.remove(activeFigure.group);
+  const oldGroup = activeFigure.group;
+  scene.remove(oldGroup);
   const m = buildMannequin({ female: !activeFigure.female });
   m.setPose(pose);
   m.group.position.copy(pos);
   for (const mesh of m.pickMeshes) mesh.userData.figure = m;
   scene.add(m.group);
   figures[idx] = m;
+  if (transform.object === oldGroup) transform.attach(m.group);
   setActiveFigure(m);
   scheduleSave();
 });
@@ -363,8 +347,8 @@ moveBtn.addEventListener('click', () => {
   moveMode = document.body.classList.toggle('move');
   moveBtn.textContent = moveMode ? '結束移動' : '移動模式';
   drag = null;
-  moveDrag = null;
   controls.enabled = true;
+  if (!moveMode) transform.detach();
 });
 
 document.getElementById('addBtn').addEventListener('click', () => {
@@ -684,6 +668,7 @@ function serializeScene() {
 }
 
 function applyScene(data) {
+  transform.detach();
   for (const f of figures) scene.remove(f.group);
   figures.length = 0;
   for (const p of props) scene.remove(p.group);

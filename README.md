@@ -8,7 +8,7 @@
 - **拖曳擺姿勢**：點選人偶關節後直接拖曳旋轉，或用右側面板 X/Y/Z 滑桿微調
 - **姿勢範本**：站立、行走、跑步、坐下、揮手、思考
 - **多人物**：加入／移除多個角色、切換性別（保留目前姿勢與位置）
-- **移動模式**：拖曳人物或物品在地面擺放位置
+- **移動模式**：點選人物／物品後以 TransformControls gizmo 移動（X 軸、Z 軸箭頭與 XZ 自由平面），雙向、任意方向皆穩定
 - **物品元件庫**：椅子、桌子、長凳、木箱、球、台座；可旋轉／刪除
 - **預覽模式**：隱藏所有 UI 與關節指示球，得到乾淨畫面
 - **匯出參考圖**：將目前畫面輸出為 PNG（檔名含時間戳）
@@ -23,7 +23,7 @@
 | --- | --- |
 | 點選人偶關節 | 選取關節（橘色線框球標示） |
 | 關節上拖曳 | 旋轉該關節 |
-| 移動模式＋拖曳人物/物品 | 在地面擺放位置 |
+| 移動模式＋點選人物/物品 | 顯示 gizmo，拖曳箭頭/平面移動 |
 | 空白處拖曳 | 旋轉視角 |
 | 滾輪／雙指 | 縮放 |
 | AI 面板 | 對話控制，如「把左手舉高」「放一張椅子」 |
@@ -52,6 +52,12 @@ npm run dev      # http://localhost:5173
 npm run build    # 輸出至 dist/
 npm run preview  # 本機預覽建置結果
 ```
+
+## 參考專案
+
+- [ftsuda/web-poser](https://github.com/ftsuda/web-poser)（MIT）— 3D 人偶擺姿勢參考工具；移動模式 gizmo（TransformControls）與場景編排做法參考自此專案
+- [FranRival/Drawing-pose-reference-3d](https://github.com/FranRival/Drawing-pose-reference-3d) — 繪畫用 3D 姿勢參考（多體型、sheet 匯出）
+- [cahalanej/3d-mannequin](https://github.com/cahalanej/3d-mannequin) — three.js 可擺姿勢人偶早期實作
 
 ## 技術
 
