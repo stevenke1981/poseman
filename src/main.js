@@ -191,8 +191,26 @@ const ndc = new THREE.Vector2();
 let drag = null;
 let moveMode = false;
 let moveDrag = null;
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+// Drag on a camera-facing plane through the object so screen movement maps
+// 1:1 regardless of camera angle (ground-plane projection explodes at shallow views).
+const dragPlane = new THREE.Plane();
+const planeNormal = new THREE.Vector3();
+const grabCenter = new THREE.Vector3();
 const planeHit = new THREE.Vector3();
+
+function beginMoveDrag(obj, centerY) {
+  camera.getWorldDirection(planeNormal);
+  dragPlane.setFromNormalAndCoplanarPoint(
+    planeNormal,
+    grabCenter.set(obj.position.x, centerY, obj.position.z),
+  );
+  if (!raycaster.ray.intersectPlane(dragPlane, planeHit)) return;
+  moveDrag = {
+    obj,
+    dx: obj.position.x - planeHit.x,
+    dz: obj.position.z - planeHit.z,
+  };
+}
 
 function setNdc(e) {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -219,13 +237,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     if (!moveMode) return; // outside move mode a prop click just selects; orbit stays on
     controls.enabled = false;
     capturePointer(e);
-    if (raycaster.ray.intersectPlane(groundPlane, planeHit)) {
-      moveDrag = {
-        obj: propHit.group,
-        dx: propHit.group.position.x - planeHit.x,
-        dz: propHit.group.position.z - planeHit.z,
-      };
-    }
+    beginMoveDrag(propHit.group, 0.3);
     return;
   }
 
@@ -236,12 +248,8 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   setActiveFigure(activeFigure);
   controls.enabled = false;
   capturePointer(e);
-  if (moveMode && raycaster.ray.intersectPlane(groundPlane, planeHit)) {
-    moveDrag = {
-      obj: activeFigure.group,
-      dx: activeFigure.group.position.x - planeHit.x,
-      dz: activeFigure.group.position.z - planeHit.z,
-    };
+  if (moveMode) {
+    beginMoveDrag(activeFigure.group, 1.0);
   } else {
     drag = { lastX: e.clientX, lastY: e.clientY };
   }
@@ -251,7 +259,7 @@ window.addEventListener('pointermove', (e) => {
   if (moveDrag) {
     setNdc(e);
     raycaster.setFromCamera(ndc, camera);
-    if (raycaster.ray.intersectPlane(groundPlane, planeHit)) {
+    if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
       moveDrag.obj.position.x = THREE.MathUtils.clamp(planeHit.x + moveDrag.dx, -10, 10);
       moveDrag.obj.position.z = THREE.MathUtils.clamp(planeHit.z + moveDrag.dz, -10, 10);
       scheduleSave();
