@@ -44,6 +44,7 @@ export function buildSystemPrompt(snapshot) {
 姿勢範本：${Object.keys(PRESET_LABELS).join(', ')}。
 物品：${Object.keys(PROP_TYPES).join(', ')}。
 目前場景：${JSON.stringify(snapshot)}
+快照中 selected 是使用者正在選取/移動的物件（含座標）；「這個」「它」等代詞優先指它。
 指令不明或純聊天時用 "actions":[] 並在 reply 回答。`;
 }
 

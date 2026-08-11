@@ -188,21 +188,58 @@ const indicator = new THREE.Mesh(
 indicator.visible = false;
 scene.add(indicator);
 
-// ground reference marker for move mode: XZ anchor ring + vertical height line
+// Ground reference marker for move mode: axis-aligned cross in gizmo colours
+// (X=red, Z=blue, Y=green) plus a coordinate label — readable by humans and
+// by vision/AI agents alike.
 const groundMark = new THREE.Group();
-const markRing = new THREE.Mesh(
-  new THREE.RingGeometry(0.14, 0.19, 32),
-  new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.85, side: THREE.DoubleSide }),
+function markLine(mat, a, b) {
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), mat);
+  groundMark.add(l);
+  return l;
+}
+markLine(
+  new THREE.LineBasicMaterial({ color: 0xff4d4d, transparent: true, opacity: 0.9 }),
+  new THREE.Vector3(-0.5, 0.005, 0),
+  new THREE.Vector3(0.5, 0.005, 0),
 );
-markRing.rotation.x = -Math.PI / 2;
-markRing.position.y = 0.005;
-groundMark.add(markRing);
-const markLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]),
-  new THREE.LineBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.55 }),
+markLine(
+  new THREE.LineBasicMaterial({ color: 0x4d7dff, transparent: true, opacity: 0.9 }),
+  new THREE.Vector3(0, 0.005, -0.5),
+  new THREE.Vector3(0, 0.005, 0.5),
 );
-groundMark.add(markLine);
-const markLinePos = markLine.geometry.attributes.position;
+const markY = markLine(
+  new THREE.LineBasicMaterial({ color: 0x35c46f, transparent: true, opacity: 0.9 }),
+  new THREE.Vector3(),
+  new THREE.Vector3(0, 1, 0),
+);
+const markYPos = markY.geometry.attributes.position;
+
+const labelCanvas = document.createElement('canvas');
+labelCanvas.width = 280;
+labelCanvas.height = 72;
+const labelCtx = labelCanvas.getContext('2d');
+const labelTex = new THREE.CanvasTexture(labelCanvas);
+const labelSprite = new THREE.Sprite(
+  new THREE.SpriteMaterial({ map: labelTex, transparent: true, depthTest: false }),
+);
+labelSprite.scale.set(0.85, 0.22, 1);
+groundMark.add(labelSprite);
+
+let lastLabelText = '';
+function updateMarkLabel(text) {
+  if (text === lastLabelText) return;
+  lastLabelText = text;
+  labelCtx.clearRect(0, 0, 280, 72);
+  labelCtx.fillStyle = 'rgba(20, 22, 28, 0.78)';
+  labelCtx.fillRect(4, 6, 272, 60);
+  labelCtx.font = 'bold 30px monospace';
+  labelCtx.textAlign = 'center';
+  labelCtx.textBaseline = 'middle';
+  labelCtx.fillStyle = '#ffd28a';
+  labelCtx.fillText(text, 140, 38);
+  labelTex.needsUpdate = true;
+}
+
 groundMark.visible = false;
 scene.add(groundMark);
 
@@ -533,8 +570,24 @@ function pushChat(kind, text) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function selectedInfo() {
+  const group = transform.object || (selectedProp && selectedProp.group);
+  if (!group) return null;
+  const pos = {
+    x: +group.position.x.toFixed(2),
+    y: +group.position.y.toFixed(2),
+    z: +group.position.z.toFixed(2),
+  };
+  const fi = figures.findIndex((f) => f.group === group);
+  if (fi >= 0) return { kind: 'figure', figure: fi, ...pos };
+  const pi = props.findIndex((p) => p.group === group);
+  if (pi >= 0) return { kind: 'prop', prop: pi, type: props[pi].type, ...pos };
+  return null;
+}
+
 function sceneSnapshot() {
   return {
+    selected: selectedInfo(),
     figures: figures.map((f) => ({
       female: f.female,
       x: +f.group.position.x.toFixed(2),
@@ -806,14 +859,18 @@ function tick() {
   } else {
     indicator.visible = false;
   }
-  // ground reference marker (move mode): anchor ring on the floor plus a
-  // vertical line showing how high the object floats above it.
+  // ground reference marker (move mode): axis cross on the floor, vertical
+  // height line and coordinate label for the selected object.
   const markTarget = transform.object || (selectedProp && selectedProp.group);
   if (!previewMode && moveMode && markTarget) {
+    const p = markTarget.position;
+    const h = Math.max(p.y, 0.001);
     groundMark.visible = true;
-    groundMark.position.set(markTarget.position.x, 0, markTarget.position.z);
-    markLinePos.setXYZ(1, 0, Math.max(markTarget.position.y, 0.001), 0);
-    markLinePos.needsUpdate = true;
+    groundMark.position.set(p.x, 0, p.z);
+    markYPos.setXYZ(1, 0, h, 0);
+    markYPos.needsUpdate = true;
+    labelSprite.position.y = h + 0.2;
+    updateMarkLabel(`x ${p.x.toFixed(2)}  z ${p.z.toFixed(2)}  y ${p.y.toFixed(2)}`);
   } else {
     groundMark.visible = false;
   }
