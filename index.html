@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="PoseMan 姿勢人偶：網頁版 3D 擺姿勢參考工具。拖曳關節擺姿勢、套用姿勢範本、多人物男/女體型、匯出參考圖。"
+    />
+    <title>姿勢人偶 PoseMan</title>
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar" class="ui-hide">
+        <h1>姿勢人偶 PoseMan</h1>
+        <span id="figInfo"></span>
+      </header>
+
+      <aside id="panel" class="ui-hide">
+        <label for="jointSelect">關節 Joint</label>
+        <select id="jointSelect"></select>
+
+        <div class="slider-row">
+          <span>X</span>
+          <input type="range" id="rotX" min="-180" max="180" step="1" value="0" />
+          <span id="rotXVal">0°</span>
+        </div>
+        <div class="slider-row">
+          <span>Y</span>
+          <input type="range" id="rotY" min="-180" max="180" step="1" value="0" />
+          <span id="rotYVal">0°</span>
+        </div>
+        <div class="slider-row">
+          <span>Z</span>
+          <input type="range" id="rotZ" min="-180" max="180" step="1" value="0" />
+          <span id="rotZVal">0°</span>
+        </div>
+
+        <div class="btnrow">
+          <button id="resetJointBtn" type="button">重設關節</button>
+          <button id="resetPoseBtn" type="button">重設姿勢</button>
+        </div>
+        <div class="btnrow">
+          <button id="genderBtn" type="button">切換性別</button>
+          <button id="resetViewBtn" type="button">重設視角</button>
+        </div>
+
+        <label class="check-row" for="gridToggle">
+          <input type="checkbox" id="gridToggle" checked />
+          顯示地面格線
+        </label>
+
+        <label for="presetSelect">姿勢範本 Preset</label>
+        <select id="presetSelect">
+          <option value="">選擇姿勢…</option>
+        </select>
+        <p id="tip">點選人偶關節後：直接拖曳人偶旋轉關節，或用滑桿微調。空白處拖曳 = 旋轉視角，滾輪 / 雙指 = 縮放。</p>
+      </aside>
+
+      <div id="hint" class="ui-hide">拖曳人偶關節擺姿勢 ・ 空白處拖曳旋轉視角</div>
+
+      <footer id="bottombar">
+        <div class="left-group">
+          <button id="addBtn" class="round ui-hide" type="button" title="加入人物">＋</button>
+          <button id="removeBtn" class="round ui-hide" type="button" title="移除人物">－</button>
+        </div>
+        <button id="previewBtn" class="pill" type="button">預覽模式</button>
+        <div class="right-group">
+          <button id="exportBtn" class="pill" type="button">匯出參考圖</button>
+        </div>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
