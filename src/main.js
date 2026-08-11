@@ -193,6 +193,28 @@ const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 let drag = null;
 let moveMode = false;
+let moveDrag = null;
+let pendingDetach = false;
+// Drag on a camera-facing plane through the object so screen movement maps
+// 1:1 regardless of camera angle (ground-plane projection explodes at shallow views).
+const dragPlane = new THREE.Plane();
+const planeNormal = new THREE.Vector3();
+const grabCenter = new THREE.Vector3();
+const planeHit = new THREE.Vector3();
+
+function beginMoveDrag(obj, centerY) {
+  camera.getWorldDirection(planeNormal);
+  dragPlane.setFromNormalAndCoplanarPoint(
+    planeNormal,
+    grabCenter.set(obj.position.x, centerY, obj.position.z),
+  );
+  if (!raycaster.ray.intersectPlane(dragPlane, planeHit)) return;
+  moveDrag = {
+    obj,
+    dx: obj.position.x - planeHit.x,
+    dz: obj.position.z - planeHit.z,
+  };
+}
 
 function setNdc(e) {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
@@ -212,14 +234,21 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const targets = figures.flatMap((f) => f.pickMeshes).concat(props.flatMap((p) => p.meshes));
   const hit = raycaster.intersectObjects(targets, false)[0];
   if (!hit) {
-    if (moveMode) transform.detach();
+    // Empty-space press: detach the gizmo on release unless the gizmo itself
+    // started dragging (its pointerdown runs after ours and clears the flag).
+    if (moveMode) pendingDetach = true;
     return;
   }
 
   const propHit = hit.object.userData.prop;
   if (propHit) {
     selectedProp = propHit;
-    if (moveMode) transform.attach(propHit.group);
+    if (moveMode) {
+      transform.attach(propHit.group);
+      controls.enabled = false;
+      capturePointer(e);
+      beginMoveDrag(propHit.group, 0.3);
+    }
     return;
   }
 
@@ -230,6 +259,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   setActiveFigure(activeFigure);
   if (moveMode) {
     transform.attach(activeFigure.group);
+    controls.enabled = false;
+    capturePointer(e);
+    beginMoveDrag(activeFigure.group, 1.0);
     return;
   }
   controls.enabled = false;
@@ -238,6 +270,16 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 });
 
 window.addEventListener('pointermove', (e) => {
+  if (moveDrag) {
+    setNdc(e);
+    raycaster.setFromCamera(ndc, camera);
+    if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
+      moveDrag.obj.position.x = THREE.MathUtils.clamp(planeHit.x + moveDrag.dx, -10, 10);
+      moveDrag.obj.position.z = THREE.MathUtils.clamp(planeHit.z + moveDrag.dz, -10, 10);
+      scheduleSave();
+    }
+    return;
+  }
   if (!drag || !activeFigure) return;
   const j = activeFigure.joints[activeJointName];
   const dx = (e.clientX - drag.lastX) * 0.008;
@@ -252,7 +294,10 @@ window.addEventListener('pointermove', (e) => {
 
 function endDrag() {
   drag = null;
+  moveDrag = null;
   controls.enabled = true;
+  if (pendingDetach && !transformDragging) transform.detach();
+  pendingDetach = false;
 }
 window.addEventListener('pointerup', endDrag);
 renderer.domElement.addEventListener('pointercancel', endDrag);
@@ -272,7 +317,10 @@ transform.setMode('translate');
 transform.showY = false;
 transform.setSize(0.8);
 scene.add(transform);
+let transformDragging = false;
 transform.addEventListener('dragging-changed', (e) => {
+  transformDragging = e.value;
+  if (e.value) pendingDetach = false; // gizmo grabbed: keep it attached
   controls.enabled = !e.value;
 });
 transform.addEventListener('objectChange', scheduleSave);
