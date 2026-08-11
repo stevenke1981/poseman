@@ -188,6 +188,24 @@ const indicator = new THREE.Mesh(
 indicator.visible = false;
 scene.add(indicator);
 
+// ground reference marker for move mode: XZ anchor ring + vertical height line
+const groundMark = new THREE.Group();
+const markRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.14, 0.19, 32),
+  new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.85, side: THREE.DoubleSide }),
+);
+markRing.rotation.x = -Math.PI / 2;
+markRing.position.y = 0.005;
+groundMark.add(markRing);
+const markLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]),
+  new THREE.LineBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.55 }),
+);
+groundMark.add(markLine);
+const markLinePos = markLine.geometry.attributes.position;
+groundMark.visible = false;
+scene.add(groundMark);
+
 // ---------------------------------------------------------------- picking / drag
 // NOTE: registered BEFORE OrbitControls so we can disable it on joint drag.
 const raycaster = new THREE.Raycaster();
@@ -787,6 +805,17 @@ function tick() {
     indicator.visible = true;
   } else {
     indicator.visible = false;
+  }
+  // ground reference marker (move mode): anchor ring on the floor plus a
+  // vertical line showing how high the object floats above it.
+  const markTarget = transform.object || (selectedProp && selectedProp.group);
+  if (!previewMode && moveMode && markTarget) {
+    groundMark.visible = true;
+    groundMark.position.set(markTarget.position.x, 0, markTarget.position.z);
+    markLinePos.setXYZ(1, 0, Math.max(markTarget.position.y, 0.001), 0);
+    markLinePos.needsUpdate = true;
+  } else {
+    groundMark.visible = false;
   }
   renderer.render(scene, camera);
 }
