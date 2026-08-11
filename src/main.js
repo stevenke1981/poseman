@@ -103,6 +103,7 @@ function addProp(type, saved = null) {
     }
   });
   group.position.x = Number.isFinite(saved?.x) ? saved.x : ((props.length % 3) - 1) * 0.7;
+  group.position.y = Number.isFinite(saved?.y) ? saved.y : 0;
   group.position.z = Number.isFinite(saved?.z) ? saved.z : 1.1;
   group.rotation.y = Number.isFinite(saved?.rotY) ? saved.rotY : 0;
   scene.add(group);
@@ -199,19 +200,16 @@ let pendingDetach = false;
 // 1:1 regardless of camera angle (ground-plane projection explodes at shallow views).
 const dragPlane = new THREE.Plane();
 const planeNormal = new THREE.Vector3();
-const grabCenter = new THREE.Vector3();
 const planeHit = new THREE.Vector3();
 
-function beginMoveDrag(obj, centerY) {
+function beginMoveDrag(obj) {
   camera.getWorldDirection(planeNormal);
-  dragPlane.setFromNormalAndCoplanarPoint(
-    planeNormal,
-    grabCenter.set(obj.position.x, centerY, obj.position.z),
-  );
+  dragPlane.setFromNormalAndCoplanarPoint(planeNormal, obj.position);
   if (!raycaster.ray.intersectPlane(dragPlane, planeHit)) return;
   moveDrag = {
     obj,
     dx: obj.position.x - planeHit.x,
+    dy: obj.position.y - planeHit.y,
     dz: obj.position.z - planeHit.z,
   };
 }
@@ -247,7 +245,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
       transform.attach(propHit.group);
       controls.enabled = false;
       capturePointer(e);
-      beginMoveDrag(propHit.group, 0.3);
+      beginMoveDrag(propHit.group);
     }
     return;
   }
@@ -261,7 +259,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     transform.attach(activeFigure.group);
     controls.enabled = false;
     capturePointer(e);
-    beginMoveDrag(activeFigure.group, 1.0);
+    beginMoveDrag(activeFigure.group);
     return;
   }
   controls.enabled = false;
@@ -275,6 +273,7 @@ window.addEventListener('pointermove', (e) => {
     raycaster.setFromCamera(ndc, camera);
     if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
       moveDrag.obj.position.x = THREE.MathUtils.clamp(planeHit.x + moveDrag.dx, -10, 10);
+      moveDrag.obj.position.y = THREE.MathUtils.clamp(planeHit.y + moveDrag.dy, 0, 10);
       moveDrag.obj.position.z = THREE.MathUtils.clamp(planeHit.z + moveDrag.dz, -10, 10);
       scheduleSave();
     }
@@ -311,10 +310,9 @@ controls.minDistance = 0.8;
 controls.maxDistance = 12;
 controls.maxPolarAngle = Math.PI * 0.52;
 
-// Ground-plane translate gizmo for move mode (pattern from ftsuda/web-poser).
+// Translate gizmo for move mode — full 3D placement (pattern from ftsuda/web-poser).
 const transform = new TransformControls(camera, renderer.domElement);
 transform.setMode('translate');
-transform.showY = false;
 transform.setSize(0.8);
 scene.add(transform);
 let transformDragging = false;
@@ -522,6 +520,7 @@ function sceneSnapshot() {
     figures: figures.map((f) => ({
       female: f.female,
       x: +f.group.position.x.toFixed(2),
+      y: +f.group.position.y.toFixed(2),
       z: +f.group.position.z.toFixed(2),
       joints: Object.fromEntries(
         Object.entries(f.joints)
@@ -539,6 +538,7 @@ function sceneSnapshot() {
     props: props.map((p) => ({
       type: p.type,
       x: +p.group.position.x.toFixed(2),
+      y: +p.group.position.y.toFixed(2),
       z: +p.group.position.z.toFixed(2),
       rotY: Math.round(p.group.rotation.y / DEG),
     })),
@@ -592,6 +592,7 @@ function applyActions(actions) {
           const f = figures[a.figure];
           if (!f) break;
           if (Number.isFinite(a.x)) f.group.position.x = THREE.MathUtils.clamp(a.x, -10, 10);
+          if (Number.isFinite(a.y)) f.group.position.y = THREE.MathUtils.clamp(a.y, 0, 10);
           if (Number.isFinite(a.z)) f.group.position.z = THREE.MathUtils.clamp(a.z, -10, 10);
           n++;
           break;
@@ -616,6 +617,7 @@ function applyActions(actions) {
           const p = props[a.prop];
           if (!p) break;
           if (Number.isFinite(a.x)) p.group.position.x = THREE.MathUtils.clamp(a.x, -10, 10);
+          if (Number.isFinite(a.y)) p.group.position.y = THREE.MathUtils.clamp(a.y, 0, 10);
           if (Number.isFinite(a.z)) p.group.position.z = THREE.MathUtils.clamp(a.z, -10, 10);
           n++;
           break;
@@ -703,12 +705,14 @@ function serializeScene() {
     figures: figures.map((f) => ({
       female: f.female,
       x: f.group.position.x,
+      y: f.group.position.y,
       z: f.group.position.z,
       pose: extractPose(f),
     })),
     props: props.map((p) => ({
       type: p.type,
       x: p.group.position.x,
+      y: p.group.position.y,
       z: p.group.position.z,
       rotY: p.group.rotation.y,
     })),
@@ -728,6 +732,7 @@ function applyScene(data) {
     for (const fd of figs) {
       const m = addFigure(Boolean(fd.female));
       if (Number.isFinite(fd.x)) m.group.position.x = fd.x;
+      if (Number.isFinite(fd.y)) m.group.position.y = fd.y;
       if (Number.isFinite(fd.z)) m.group.position.z = fd.z;
       if (fd.pose) m.setPose(fd.pose);
     }
