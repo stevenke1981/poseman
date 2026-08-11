@@ -72,9 +72,13 @@
           <button id="saveFileBtn" type="button">存檔</button>
           <button id="loadFileBtn" type="button">讀檔</button>
         </div>
+        <div class="btnrow">
+          <button id="undoBtn" type="button" title="Ctrl+Z">復原</button>
+          <button id="redoBtn" type="button" title="Ctrl+Y">重做</button>
+        </div>
         <input type="file" id="fileInput" accept=".json,application/json" hidden />
 
-        <p id="tip">點選關節後拖曳或滑桿微調；「移動模式」直接拖曳人物／物品自由移動，或用方向軸 gizmo 精確移動。物品可旋轉／刪除。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳 = 旋轉視角。</p>
+        <p id="tip">點選關節後拖曳或滑桿微調；「移動模式」直接拖曳人物／物品自由移動，或用方向軸 gizmo 精確移動。物品可旋轉／刪除。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳 = 旋轉視角。復原 Ctrl+Z／重做 Ctrl+Y。</p>
       </aside>
 
       <div id="hint" class="ui-hide">拖曳關節擺姿勢 ・ 移動模式直接拖曳人物/物品自由移動 ・ 空白處旋轉視角</div>
