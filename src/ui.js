@@ -1,5 +1,5 @@
 import { buildMannequin, JOINT_NAMES, JOINT_LABELS, DEG } from './mannequin.js';
-import { PRESETS, PRESET_LABELS } from './poses.js';
+import { PRESETS, PRESET_LABELS, loadCustomPoses, saveCustomPoses } from './poses.js';
 import { PROP_TYPES } from './props.js';
 import { scene, camera, renderer, controls, grid, HOME_POS, HOME_TARGET } from './scene.js';
 import { state } from './state.js';
@@ -10,12 +10,15 @@ import {
   setActiveFigure,
   extractPose,
   syncSliders,
+  mirroredPose,
+  copiedSidePose,
 } from './figures.js';
 import { addProp, removeProp } from './propsManager.js';
 import { transform } from './interaction.js';
-import { applyScene, scheduleSave, serializeScene } from './persistence.js';
+import { applyScene, scheduleSave, serializeScene, sanitizePose } from './persistence.js';
 import { withHistory, beginGesture, endGesture, undo, redo } from './history.js';
 import { applyActions, sceneSnapshot } from './aiActions.js';
+import { captureView, captureSheet } from './exporter.js';
 import {
   buildSystemPrompt,
   requestAI,
@@ -58,6 +61,24 @@ import {
   aiSettingsBtn,
   aiSaveBtn,
   chatSend,
+  poseNameInput,
+  savePoseBtn,
+  exportPoseBtn,
+  customPoseSelect,
+  applyPoseBtn,
+  deletePoseBtn,
+  importPoseBtn,
+  poseFileInput,
+  mirrorAllBtn,
+  mirrorArmsBtn,
+  mirrorLegsBtn,
+  copyLRBtn,
+  copyRLBtn,
+  viewSelect,
+  scaleSelect,
+  transparentCheck,
+  export2Btn,
+  sheetBtn,
 } from './dom.js';
 
 // ---------------------------------------------------------------- populate selects
@@ -341,4 +362,170 @@ async function sendChat() {
 chatSend.addEventListener('click', sendChat);
 chatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendChat();
+});
+
+// ---------------------------------------------------------------- keyboard shortcuts (T2-1)
+function selectJoint(name) {
+  state.activeJointName = name;
+  jointSelect.value = name;
+  syncSliders();
+}
+
+window.addEventListener('keydown', (e) => {
+  const t = e.target;
+  if (
+    t &&
+    (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
+  ) {
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // ctrl/meta combos handled by undo/redo listener
+  switch (e.key.toLowerCase()) {
+    case 'm':
+      moveBtn.click();
+      break;
+    case 'p':
+      previewBtn.click();
+      break;
+    case 'g':
+      gridToggle.click();
+      break;
+    case 'delete':
+    case 'backspace':
+      if (state.selectedProp) {
+        withHistory(() => removeProp(state.selectedProp));
+        scheduleSave();
+      }
+      break;
+    case 'escape':
+      if (state.moveMode) moveBtn.click();
+      else {
+        transform.detach();
+        state.selectedProp = null;
+      }
+      break;
+    case '1':
+      selectJoint('hips');
+      break;
+    case '2':
+      selectJoint('chest');
+      break;
+    case '3':
+      selectJoint('head');
+      break;
+  }
+});
+
+// ---------------------------------------------------------------- custom pose library (T2-2)
+function refreshCustomPoseSelect(keep = '') {
+  const map = loadCustomPoses();
+  customPoseSelect.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = '自訂姿勢…';
+  customPoseSelect.appendChild(ph);
+  for (const name of Object.keys(map)) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    customPoseSelect.appendChild(opt);
+  }
+  customPoseSelect.value = Object.hasOwn(map, keep) ? keep : '';
+}
+refreshCustomPoseSelect();
+
+savePoseBtn.addEventListener('click', () => {
+  if (!state.activeFigure) return;
+  const name = poseNameInput.value.trim() || `姿勢 ${new Date().toLocaleString()}`;
+  const map = loadCustomPoses();
+  map[name] = extractPose(state.activeFigure);
+  saveCustomPoses(map);
+  refreshCustomPoseSelect(name);
+});
+
+function applyCustomPose() {
+  const map = loadCustomPoses();
+  const pose = map[customPoseSelect.value];
+  if (!state.activeFigure || !pose) return;
+  withHistory(() => state.activeFigure.setPose(pose));
+  syncSliders();
+  scheduleSave();
+}
+applyPoseBtn.addEventListener('click', applyCustomPose);
+customPoseSelect.addEventListener('change', applyCustomPose);
+
+deletePoseBtn.addEventListener('click', () => {
+  const name = customPoseSelect.value;
+  if (!name) return;
+  const map = loadCustomPoses();
+  delete map[name];
+  saveCustomPoses(map);
+  refreshCustomPoseSelect();
+});
+
+exportPoseBtn.addEventListener('click', () => {
+  if (!state.activeFigure) return;
+  const blob = new Blob([JSON.stringify(extractPose(state.activeFigure), null, 2)], {
+    type: 'application/json',
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `poseman-pose-${stamp()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+importPoseBtn.addEventListener('click', () => poseFileInput.click());
+poseFileInput.addEventListener('change', async () => {
+  const file = poseFileInput.files[0];
+  poseFileInput.value = '';
+  if (!file) return;
+  try {
+    const pose = sanitizePose(JSON.parse(await file.text()));
+    if (!Object.keys(pose).length) throw new Error('empty');
+    const name = poseNameInput.value.trim() || file.name.replace(/\.json$/i, '');
+    const map = loadCustomPoses();
+    map[name] = pose;
+    saveCustomPoses(map);
+    refreshCustomPoseSelect(name);
+  } catch {
+    alert('匯入失敗：姿勢 JSON 格式不正確');
+  }
+});
+
+// ---------------------------------------------------------------- mirror (T2-3)
+function applyPoseTransform(fn) {
+  if (!state.activeFigure) return;
+  withHistory(() => state.activeFigure.setPose(fn(extractPose(state.activeFigure))));
+  syncSliders();
+  scheduleSave();
+}
+mirrorAllBtn.addEventListener('click', () => applyPoseTransform((p) => mirroredPose(p, 'all')));
+mirrorArmsBtn.addEventListener('click', () => applyPoseTransform((p) => mirroredPose(p, 'arms')));
+mirrorLegsBtn.addEventListener('click', () => applyPoseTransform((p) => mirroredPose(p, 'legs')));
+copyLRBtn.addEventListener('click', () => applyPoseTransform((p) => copiedSidePose(p, 'LR')));
+copyRLBtn.addEventListener('click', () => applyPoseTransform((p) => copiedSidePose(p, 'RL')));
+
+// ---------------------------------------------------------------- export options (T2-4)
+function download(url, name) {
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+}
+
+export2Btn.addEventListener('click', () => {
+  const scale = Number(scaleSelect.value) || 1;
+  const url = captureView({
+    view: viewSelect.value,
+    scale,
+    transparent: transparentCheck.checked,
+  });
+  download(url, `poseman-${viewSelect.value}-${scale}x-${stamp()}.png`);
+});
+
+sheetBtn.addEventListener('click', async () => {
+  const scale = Number(scaleSelect.value) || 1;
+  const url = await captureSheet({ scale, transparent: transparentCheck.checked });
+  download(url, `poseman-sheet-${scale}x-${stamp()}.png`);
 });

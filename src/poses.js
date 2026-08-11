@@ -89,3 +89,23 @@ export const PRESET_LABELS = {
   wave: '揮手 Wave',
   think: '思考 Think',
 };
+
+// ---------------------------------------------------------------- custom pose library (T2-2)
+const CUSTOM_KEY = 'poseman-custom-poses-v1';
+
+export function loadCustomPoses() {
+  try {
+    const d = JSON.parse(localStorage.getItem(CUSTOM_KEY));
+    return d && typeof d === 'object' && !Array.isArray(d) ? d : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveCustomPoses(map) {
+  try {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(map));
+  } catch {
+    /* storage unavailable */
+  }
+}

@@ -62,3 +62,50 @@ export function removeFigureAt(i) {
 export function removeFigure() {
   removeFigureAt(figures.length - 1);
 }
+
+// ---------------------------------------------------------------- mirror (T2-3)
+// Mirror across the character's sagittal plane: rotation.x unchanged,
+// rotation.y / rotation.z sign-flipped; L/R joints swapped.
+const ARM_PAIRS = [
+  ['shoulderL', 'shoulderR'],
+  ['elbowL', 'elbowR'],
+  ['wristL', 'wristR'],
+];
+const LEG_PAIRS = [
+  ['hipL', 'hipR'],
+  ['kneeL', 'kneeR'],
+  ['ankleL', 'ankleR'],
+];
+const CENTER_JOINTS = ['hips', 'spine', 'chest', 'neck', 'head'];
+
+function flipRot(r) {
+  return [r[0], -r[1], -r[2]];
+}
+
+// scope: 'all' | 'arms' | 'legs'
+export function mirroredPose(pose, scope) {
+  const out = {};
+  for (const [n, r] of Object.entries(pose)) out[n] = r.slice();
+  const pairs = scope === 'arms' ? ARM_PAIRS : scope === 'legs' ? LEG_PAIRS : [...ARM_PAIRS, ...LEG_PAIRS];
+  for (const [a, b] of pairs) {
+    const ra = pose[a] || [0, 0, 0];
+    const rb = pose[b] || [0, 0, 0];
+    out[a] = flipRot(rb);
+    out[b] = flipRot(ra);
+  }
+  if (scope === 'all') {
+    for (const c of CENTER_JOINTS) if (out[c]) out[c] = flipRot(out[c]);
+  }
+  return out;
+}
+
+// dir 'LR': copy left limbs onto right (mirrored); 'RL' the reverse.
+export function copiedSidePose(pose, dir) {
+  const out = {};
+  for (const [n, r] of Object.entries(pose)) out[n] = r.slice();
+  for (const [l, r] of [...ARM_PAIRS, ...LEG_PAIRS]) {
+    if (dir === 'LR') out[r] = flipRot(pose[l] || [0, 0, 0]);
+    else out[l] = flipRot(pose[r] || [0, 0, 0]);
+  }
+  return out;
+}

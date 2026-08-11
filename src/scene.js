@@ -128,3 +128,12 @@ export function updateMarkLabel(text) {
 
 groundMark.visible = false;
 scene.add(groundMark);
+
+// T2-5: selection highlights (bounding boxes). Created once; retargeted via
+// setFromObject each frame while visible.
+export const figBox = new THREE.BoxHelper(new THREE.Object3D(), 0xff9a2e);
+figBox.visible = false;
+scene.add(figBox);
+export const propBox = new THREE.BoxHelper(new THREE.Object3D(), 0x4d7dff);
+propBox.visible = false;
+scene.add(propBox);

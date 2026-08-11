@@ -45,3 +45,30 @@ export const aiKey = document.getElementById('aiKey');
 export const aiSettingsBtn = document.getElementById('aiSettingsBtn');
 export const aiSaveBtn = document.getElementById('aiSaveBtn');
 export const chatSend = document.getElementById('chatSend');
+
+// T2-2 custom pose library
+export const poseNameInput = document.getElementById('poseNameInput');
+export const savePoseBtn = document.getElementById('savePoseBtn');
+export const exportPoseBtn = document.getElementById('exportPoseBtn');
+export const customPoseSelect = document.getElementById('customPoseSelect');
+export const applyPoseBtn = document.getElementById('applyPoseBtn');
+export const deletePoseBtn = document.getElementById('deletePoseBtn');
+export const importPoseBtn = document.getElementById('importPoseBtn');
+export const poseFileInput = document.getElementById('poseFileInput');
+
+// T2-3 mirror
+export const mirrorAllBtn = document.getElementById('mirrorAllBtn');
+export const mirrorArmsBtn = document.getElementById('mirrorArmsBtn');
+export const mirrorLegsBtn = document.getElementById('mirrorLegsBtn');
+export const copyLRBtn = document.getElementById('copyLRBtn');
+export const copyRLBtn = document.getElementById('copyRLBtn');
+
+// T2-4 export options
+export const viewSelect = document.getElementById('viewSelect');
+export const scaleSelect = document.getElementById('scaleSelect');
+export const transparentCheck = document.getElementById('transparentCheck');
+export const export2Btn = document.getElementById('export2Btn');
+export const sheetBtn = document.getElementById('sheetBtn');
+
+// T2-5 selection info
+export const selInfo = document.getElementById('selInfo');

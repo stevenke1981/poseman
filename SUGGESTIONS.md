@@ -273,3 +273,10 @@
   - **T1-5**：snapshot 歷史堆疊（上限 50）；觸發點含關節拖曳、滑桿、範本、重設、性別、加/刪人物、加/刪/旋轉道具、移動拖曳、gizmo、AI 動作；面板「復原／重做」按鈕＋Ctrl+Z / Ctrl+Y（輸入框焦點時不觸發）；與自動存檔不衝突。
   - 驗證：`npm run check` 通過；headless Chrome 截圖渲染正常、無 console 錯誤。
   - 風險：模組間有 ESM 循環引用（figures↔interaction、interaction↔persistence↔history），皆僅於執行期存取函式宣告，頂層無 TDZ 風險；若再拆分請維持此不變量。
+- 2026-08-11（第二階段全數完成）：
+  - **T2-1**：鍵盤快捷鍵 M/P/G/Delete/Esc/1/2/3，輸入框焦點不觸發（`ui.js`）。
+  - **T2-2**：自訂姿勢庫（`poses.js` 存取 helper＋`ui.js` UI）：存/套/刪/匯出/匯入，匯入經 `sanitizePose` 驗證。
+  - **T2-3**：`figures.js` 新增 `mirroredPose` / `copiedSidePose`（y/z 反號、L/R 互換），UI 五鍵。
+  - **T2-4**：新增 `exporter.js`：視角 preset（front/side/back/top/current）、1x/2x/4x、透明背景、四視拼圖；保留「先 render 再 toDataURL」順序。
+  - **T2-5**：面板 `#selInfo` 選取文字；人物/物品 BoxHelper 高亮（預覽隱藏）。
+  - 驗證：`npm run check` 通過；headless Chrome 截圖確認新 UI 與 bounding box 正常。

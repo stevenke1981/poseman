@@ -117,6 +117,24 @@ input[type="range"] {
   margin-top: 10px;
 }
 
+#selInfo {
+  min-height: 16px;
+  margin: 0 0 8px;
+  color: #ffd28a;
+  font-size: 12px;
+}
+
+#panel input:not([type]) {
+  width: 100%;
+  background: #33363f;
+  color: #eef0f8;
+  border: 1px solid #4a4e59;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
 #panel .check-row {
   display: flex;
   align-items: center;

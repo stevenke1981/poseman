@@ -20,6 +20,7 @@
       </header>
 
       <aside id="panel" class="ui-hide">
+        <div id="selInfo"></div>
         <label for="jointSelect">關節 Joint</label>
         <select id="jointSelect"></select>
 
@@ -57,6 +58,55 @@
         <select id="presetSelect">
           <option value="">選擇姿勢…</option>
         </select>
+
+        <label for="customPoseSelect">自訂姿勢 Library</label>
+        <input id="poseNameInput" placeholder="姿勢名稱（選填）" />
+        <div class="btnrow">
+          <button id="savePoseBtn" type="button">存姿勢</button>
+          <button id="exportPoseBtn" type="button">匯出</button>
+        </div>
+        <select id="customPoseSelect"></select>
+        <div class="btnrow">
+          <button id="applyPoseBtn" type="button">套用</button>
+          <button id="deletePoseBtn" type="button">刪除</button>
+          <button id="importPoseBtn" type="button">匯入</button>
+        </div>
+        <input type="file" id="poseFileInput" accept=".json,application/json" hidden />
+
+        <label>鏡像 Mirror</label>
+        <div class="btnrow">
+          <button id="mirrorAllBtn" type="button">鏡像全身</button>
+          <button id="mirrorArmsBtn" type="button">鏡像手臂</button>
+        </div>
+        <div class="btnrow">
+          <button id="mirrorLegsBtn" type="button">鏡像腿部</button>
+          <button id="copyLRBtn" type="button">左→右</button>
+          <button id="copyRLBtn" type="button">右→左</button>
+        </div>
+
+        <label>匯出 Export</label>
+        <select id="viewSelect">
+          <option value="current">目前視角</option>
+          <option value="front">正面</option>
+          <option value="side">側面</option>
+          <option value="back">背面</option>
+          <option value="top">俯視</option>
+        </select>
+        <div class="btnrow">
+          <select id="scaleSelect">
+            <option value="1">1x</option>
+            <option value="2">2x</option>
+            <option value="4">4x</option>
+          </select>
+          <label class="check-row" for="transparentCheck">
+            <input type="checkbox" id="transparentCheck" />
+            透明背景
+          </label>
+        </div>
+        <div class="btnrow">
+          <button id="export2Btn" type="button">匯出視角</button>
+          <button id="sheetBtn" type="button">四視拼圖</button>
+        </div>
 
         <label for="propSelect">物品 Props</label>
         <select id="propSelect">

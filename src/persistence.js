@@ -37,7 +37,7 @@ function finiteOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function sanitizePose(pose) {
+export function sanitizePose(pose) {
   const out = {};
   if (!pose || typeof pose !== 'object' || Array.isArray(pose)) return out;
   for (const [name, rot] of Object.entries(pose)) {

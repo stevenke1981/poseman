@@ -1,10 +1,26 @@
 import './style.css';
 import * as THREE from 'three';
-import { renderer, scene, camera, indicator, groundMark, markYPos, labelSprite, updateMarkLabel } from './scene.js';
+import {
+  renderer,
+  scene,
+  camera,
+  indicator,
+  groundMark,
+  markYPos,
+  labelSprite,
+  updateMarkLabel,
+  figBox,
+  propBox,
+} from './scene.js';
 import { state } from './state.js';
 import { transform } from './interaction.js';
 import { loadStoredScene } from './persistence.js';
 import { syncHistory } from './history.js';
+import { figures } from './figures.js';
+import { props } from './propsManager.js';
+import { JOINT_LABELS } from './mannequin.js';
+import { PROP_TYPES } from './props.js';
+import { selInfo } from './dom.js';
 import './ui.js';
 
 // ---------------------------------------------------------------- boot
@@ -20,6 +36,7 @@ window.addEventListener('resize', () => {
 
 // ---------------------------------------------------------------- render loop
 const tmpV = new THREE.Vector3();
+let lastSelText = null;
 function tick() {
   requestAnimationFrame(tick);
   if (state.previewMode) {
@@ -52,6 +69,29 @@ function tick() {
     updateMarkLabel(`x ${p.x.toFixed(2)}  z ${p.z.toFixed(2)}  y ${p.y.toFixed(2)}`);
   } else {
     groundMark.visible = false;
+  }
+  // T2-5: selection highlights (bounding boxes) + panel info text
+  if (!state.previewMode && state.activeFigure) {
+    figBox.visible = true;
+    figBox.setFromObject(state.activeFigure.group);
+  } else {
+    figBox.visible = false;
+  }
+  if (!state.previewMode && state.selectedProp) {
+    propBox.visible = true;
+    propBox.setFromObject(state.selectedProp.group);
+  } else {
+    propBox.visible = false;
+  }
+  let selText = '';
+  if (state.selectedProp) {
+    selText = `目前選取：物品 ${props.indexOf(state.selectedProp) + 1}（${PROP_TYPES[state.selectedProp.type].label}）`;
+  } else if (state.activeFigure) {
+    selText = `目前選取：人物 ${figures.indexOf(state.activeFigure) + 1}・${JOINT_LABELS[state.activeJointName]}`;
+  }
+  if (selText !== lastSelText) {
+    lastSelText = selText;
+    selInfo.textContent = selText;
   }
   renderer.render(scene, camera);
 }
