@@ -1,7 +1,6 @@
 evaluation_date: 2026-08-12
-autonomy: implemented_and_accepted
-candidate: collapsible control panel sections
-status: completed
-evidence: CHANGE-002 browser acceptance PASS; right panel remained long after adding appearance and scene-management controls
-scope: native details/summary accordion only; no scene JSON or persistence contract changes; bulk restore keeps prop selection transient
-owner_acceptance: PASS
+candidate: 外部 GLB 骨架診斷與手動映射編輯器
+status: proposed
+reason: CHANGE-005 已支援常見 Mixamo、Blender、VRM aliases；不符合命名慣例的合法人體 rig 仍需要可視化診斷與人工指定 17 關節。
+scope: import preview、missing/duplicate bone diagnostics、17-joint dropdown mapping、mapping preset save/load；不自動重寫或上傳原始 GLB。
+owner_acceptance: pending

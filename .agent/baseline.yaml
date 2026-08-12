@@ -1,55 +1,49 @@
-id: BASELINE-20260812-003
-status: passed
+id: BASELINE-20260812-004
+status: passed_with_limits
 accepted_features:
   - upgraded stylized male and female mannequin appearance
-  - per-figure skin tone and outfit palette controls
-  - scene v2 appearance persistence with v1 defaults
-  - explicit figure management with last-person guard
-  - body profile, hairstyle, and hair-color customization
-  - explicit prop catalog, selection, rotation, scaling, and removal
-  - floor lamp and sofa procedural reference props
-  - scene v3 prop scale persistence with v1/v2 compatibility
+  - per-figure skin tone, outfit, body, hair, eye, and skin-quality controls
+  - explicit figure and prop management with persistence and undo support
   - seven accessible collapsible control-panel sections
-  - scan-inspired articulated mannequin with continuous limb and torso silhouettes
-  - per-figure MeshPhysicalMaterial skin, deterministic micro-surface texture, layered eyes, and studio lighting
-  - eye-color and skin-quality controls with scene v4 persistence
+  - scan-inspired articulated PBR procedural mannequins and studio lighting
+  - authorized self-contained GLB human import with explicit license metadata
+  - automatic 17-joint Mixamo, Blender, and VRM bone alias mapping
+  - imported-figure pose sliders, joint picking proxies, normalization, grounding, and disposal
+  - browser-local SHA-256 IndexedDB GLB storage and scene v5 asset references
+  - missing-asset warning that preserves the rest of the scene
+  - Vite 8.2.1 development and production build pipeline
 critical_user_flows:
-  - select a figure and change its skin tone and outfit
-  - switch figures without appearance leaking between them
-  - switch gender while preserving pose, position, and appearance
-  - reload and recover appearance from localStorage
-  - apply pose presets and enter preview mode
-  - add and remove figures while retaining at least one
-  - add props, tune rotation and scale, then reload the scene
-  - use move mode and undo without stale selection or gizmo state
-  - operate the accordion by keyboard and on a narrow viewport
-  - inspect front and side close-ups while preserving joint posing and picking
-  - change eye color and skin quality independently per figure and recover them after reload
+  - select and customize a procedural figure without leaking appearance to another figure
+  - add, remove, position, pose, and reload figures and props
+  - confirm asset rights, import a valid licensed GLB, pose its mapped skeleton, and reload it from IndexedDB
+  - reject malformed, oversized, external-URI, incomplete-rig, or unconfirmed GLB input
+  - load scene v1-v4 with safe defaults and scene v5 with external-asset references
+  - keep other figures usable and show a warning when an external asset is unavailable
 protected_behavior:
-  - joint selection and pose manipulation
-  - multi-figure placement
-  - preview and export controls
-  - old scenes without appearance fields load with defaults
-  - joint picking continues without the orange wireframe indicator sphere
-  - prototype-like prop keys are rejected safely
-  - accordion state remains transient and outside scene JSON
+  - joint selection, pose presets, mirror/copy, multi-figure placement, preview, and export
+  - no orange wireframe reference sphere
+  - prototype-like keys and unsafe URLs are rejected safely
+  - binary GLB data never enters scene JSON or localStorage
 public_interfaces:
-  - scene JSON version 4 with optional figures[].appearance.eyeColor, figures[].appearance.skinQuality, and props[].scale
+  - scene JSON version 5 with optional figures[].assetRef and figures[].license
+  - IndexedDB poseman-assets-v1/glb records addressed by SHA-256 assetId
 data_compatibility:
-  - scene version 1 remains readable
-  - scene versions 2 and 3 remain readable with default eye color and skin quality
-  - invalid appearance values fall back to defaults
-  - scene versions 1 and 2 default prop scale to 1
+  - scene versions 1 through 4 remain readable
+  - scene v5 without a local matching GLB degrades to a visible placeholder and warning
+  - procedural appearance and prop defaults remain unchanged
 environment:
   - Windows 2026-08-12
-  - Node built-in test runner
-  - Vite 5.4.21
+  - Node 24.15.0 built-in test runner
+  - Vite 8.2.1 with Rolldown
 known_limitations:
-  - Three.js production chunk remains over Vite's 500 kB advisory threshold
-  - the upgraded character is a scan-inspired procedural model, not a photogrammetry scan or imported human asset
-  - existing Vite/esbuild development-server advisories require a separately approved breaking Vite 8 upgrade
+  - imported GLB must be self-contained, no larger than 25 MiB, and expose all 17 required joints through supported aliases
+  - imported animation playback and manual remapping are not yet available
+  - scene JSON references browser-local IndexedDB assets and is not a self-contained asset bundle
+  - the bundled CC0 acceptance fixture is minimal rather than a scanned production human
+  - Three.js remains above the 500 kB chunk-size advisory
 evidence:
   - .agent/acceptance/CHANGE-001-acceptance.yaml
   - .agent/acceptance/CHANGE-002-acceptance.yaml
   - .agent/acceptance/CHANGE-003-acceptance.yaml
   - .agent/acceptance/CHANGE-004-acceptance.yaml
+  - .agent/acceptance/CHANGE-005-acceptance.yaml

@@ -1,8 +1,10 @@
 import { grid } from './scene.js';
-import { figures, addFigure, setActiveFigure, extractPose } from './figures.js';
+import { figures, addFigure, addImportedFigure, replaceFigureAt, setActiveFigure, extractPose } from './figures.js';
 import { props, addProp, setActiveProp, notifyPropsChange } from './propsManager.js';
 import { transform } from './interaction.js';
 import { JOINT_NAMES } from './mannequin.js';
+import { importGlbArrayBuffer } from './glbImporter.js';
+import { getAsset } from './assetStore.js';
 import { hasPropType } from './props.js';
 import { gridToggle } from './dom.js';
 import {
@@ -14,6 +16,21 @@ import {
 } from './sceneSchema.js';
 
 const STORAGE_KEY = 'poseman-scene-v1';
+let applyGeneration = 0;
+
+// Async external-asset work captures this epoch. Any scene replacement,
+// undo, redo, or file load increments it through applyScene, allowing stale
+// GLTF results to be disposed without mutating the new scene.
+export function getSceneGeneration() {
+  return applyGeneration;
+}
+
+function reportAssetWarning(message) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('poseman-asset-warning', { detail: String(message) }));
+  }
+  return message;
+}
 
 export function serializeScene() {
   return {
@@ -37,6 +54,7 @@ export function sanitizePose(pose) {
 }
 
 export function applyScene(data) {
+  const generation = ++applyGeneration;
   transform.detach();
   for (const f of figures) {
     // Geometry remains in the shared cache; dispose only this figure's owned materials.
@@ -61,14 +79,31 @@ export function applyScene(data) {
     ? data.figures.filter((f) => f && typeof f === 'object')
     : [];
   if (rawFigs.length) {
-    for (const fd of rawFigs) {
+    for (const [figureIndex, fd] of rawFigs.entries()) {
       const normalized = sanitizeFigureRecord(fd, sanitizePose);
-      const m = addFigure(normalized.female, normalized.appearance);
-      if (normalized.x !== null) m.group.position.x = normalized.x;
-      if (normalized.y !== null) m.group.position.y = normalized.y;
-      if (normalized.z !== null) m.group.position.z = normalized.z;
-      const pose = normalized.pose;
-      if (Object.keys(pose).length) m.setPose(pose);
+      if (normalized.assetRef?.assetId) {
+        // A procedural placeholder preserves ordering while IndexedDB and
+        // GLTFLoader work asynchronously.  It retains the asset ref in scene
+        // JSON and is replaced in-place when hydration succeeds.
+        const placeholder = addFigure(normalized.female, normalized.appearance);
+        placeholder.externalPending = true;
+        placeholder.assetRef = normalized.assetRef;
+        placeholder.license = normalized.license;
+        placeholder.assetName = normalized.license?.assetName || '外部人物';
+        if (normalized.x !== null) placeholder.group.position.x = normalized.x;
+        if (normalized.y !== null) placeholder.group.position.y = normalized.y;
+        if (normalized.z !== null) placeholder.group.position.z = normalized.z;
+        if (Object.keys(normalized.pose).length) placeholder.setPose(normalized.pose);
+        setActiveFigure(placeholder);
+        void hydrateImportedFigure(normalized, generation, figureIndex, placeholder);
+      } else {
+        const m = addFigure(normalized.female, normalized.appearance);
+        if (normalized.x !== null) m.group.position.x = normalized.x;
+        if (normalized.y !== null) m.group.position.y = normalized.y;
+        if (normalized.z !== null) m.group.position.z = normalized.z;
+        const pose = normalized.pose;
+        if (Object.keys(pose).length) m.setPose(pose);
+      }
     }
   } else {
     addFigure(false).group.position.x = -0.4;
@@ -92,6 +127,45 @@ export function applyScene(data) {
   // rebuilding arrays; force the manager callback once more so empty scenes
   // cannot leave stale prop options or enabled controls behind.
   notifyPropsChange({ bulk: true });
+  return generation;
+}
+
+async function hydrateImportedFigure(normalized, generation, figureIndex, placeholder) {
+  try {
+    const record = await getAsset(normalized.assetRef.assetId);
+    if (!record) {
+      reportAssetWarning(`找不到外部人物資產 ${normalized.license?.assetName || normalized.assetRef.assetId.slice(0, 12)}；已保留其他人物。`);
+      if (!figures.length && generation === applyGeneration) addFigure(false);
+      return null;
+    }
+    if (generation !== applyGeneration) return null;
+    const figure = await importGlbArrayBuffer(record.data, {
+      assetId: normalized.assetRef.assetId,
+      assetName: normalized.license?.assetName || record.metadata?.assetName,
+      license: normalized.license || record.metadata,
+    });
+    if (generation !== applyGeneration) {
+      figure.dispose?.();
+      return null;
+    }
+    if (figures[figureIndex] !== placeholder) {
+      figure.dispose?.();
+      return null;
+    }
+    const currentPose = placeholder ? extractPose(placeholder) : normalized.pose;
+    const currentPosition = placeholder?.group?.position || { x: normalized.x, y: normalized.y, z: normalized.z };
+    return replaceFigureAt(figureIndex, figure, {
+      assetId: normalized.assetRef.assetId,
+      assetName: normalized.license?.assetName || record.metadata?.assetName,
+      license: normalized.license || record.metadata,
+      position: currentPosition,
+      pose: currentPose,
+    });
+  } catch (error) {
+    reportAssetWarning(`外部人物資產載入失敗：${error?.message || '格式不正確'}；已保留其他人物。`);
+    if (!figures.length && generation === applyGeneration) addFigure(false);
+    return null;
+  }
 }
 
 export function saveScene() {

@@ -33,6 +33,35 @@
           </div>
           <button id="removeFigureBtn" type="button">移除目前人物</button>
           <small id="figureManageHint" class="muted-hint">至少保留 1 位人物。</small>
+          <div class="external-figure-card">
+            <h3>匯入授權 GLB 人體</h3>
+            <p class="muted-hint">僅接受 .glb；檔案會留在本機 IndexedDB，不會塞入場景 JSON。</p>
+            <label for="glbFileInput">GLB 檔案</label>
+            <input id="glbFileInput" type="file" accept=".glb,model/gltf-binary" />
+            <label for="glbAssetName">資產名稱</label>
+            <input id="glbAssetName" maxlength="120" autocomplete="off" />
+            <label for="glbLicenseType">授權類型</label>
+            <select id="glbLicenseType">
+              <option value="">請選擇…</option>
+              <option value="own">自有</option>
+              <option value="cc0">CC0</option>
+              <option value="cc-by-4.0">CC BY 4.0</option>
+              <option value="other">其他</option>
+            </select>
+            <label for="glbAuthor">作者（CC BY／其他必填）</label>
+            <input id="glbAuthor" maxlength="160" autocomplete="off" />
+            <label for="glbSource">https 來源（CC BY 必填）</label>
+            <input id="glbSource" type="url" maxlength="500" placeholder="https://…" autocomplete="off" />
+            <label for="glbLicenseNotes">授權說明（其他可填）</label>
+            <textarea id="glbLicenseNotes" maxlength="500" rows="2"></textarea>
+            <label class="check-row" for="glbLicenseConfirm">
+              <input id="glbLicenseConfirm" type="checkbox" />
+              我有權使用並已核對授權
+            </label>
+            <button id="importGlbBtn" type="button">匯入 GLB 人體</button>
+            <p id="assetImportStatus" class="asset-status" role="status" aria-live="polite"></p>
+            <p id="assetSummary" class="asset-status" aria-live="polite">目前人物：程序化人偶</p>
+          </div>
           </fieldset>
         </details>
 

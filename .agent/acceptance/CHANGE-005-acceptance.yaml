@@ -1,0 +1,27 @@
+change: CHANGE-005
+date: 2026-08-12
+status: PASSED_WITH_LIMITATIONS
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: PASS
+evidence:
+  - npm test: 33/33 passed
+  - npm run build: Vite 8.2.1 passed with only the existing Three.js chunk-size advisory
+  - npm run check: passed
+  - npm audit --audit-level=high: 0 vulnerabilities
+  - root in-app browser: authorization confirmation gate blocked import and kept the figure count unchanged
+  - root in-app browser: self-authored CC0 mini-humanoid.glb imported as a third external figure with its license summary visible
+  - root in-app browser: imported head Z rotation changed to 35 degrees; reload reconstructed the GLB from IndexedDB and retained the 35-degree pose
+  - root in-app browser: malformed GLB produced a visible error and did not add a figure
+  - root in-app browser: a scene referencing a missing asset kept the procedural figure and displayed the explicit missing-asset warning
+  - root in-app browser: no console warnings or errors during initial load, successful import, pose control, and reload
+  - independent code review: APPROVE after accessor OOM, import epoch race, multi-rig, image buffer-source, and aggregate decode-budget fixes
+limitations:
+  - The committed CC0 fixture is deliberately minimal and validates the import and rig pipeline; it is not a production-quality scanned human asset
+  - Import accepts self-contained GLB only, up to 25 MiB, with all 17 required mapped joints; animation playback is not part of CHANGE-005
+  - GLB bytes are browser-local in IndexedDB, while scene JSON stores SHA-256 references and license metadata; moving JSON to another browser requires re-importing the licensed GLB
+  - The Three.js production chunk remains above Vite's 500 kB advisory threshold

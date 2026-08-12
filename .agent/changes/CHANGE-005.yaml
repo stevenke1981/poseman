@@ -1,0 +1,30 @@
+id: CHANGE-005
+title: 授權 GLB 人體資產匯入與骨架映射
+status: accepted_with_documented_limits
+classification: feature_and_security_upgrade
+risk: high
+impact:
+  - adds parsing and local persistence for user-supplied binary 3D assets
+  - upgrades the development toolchain from Vite 5 to Vite 8
+data_contract:
+  - scene schema v5 stores figures[].assetRef SHA-256 ids, bone mappings, and license metadata
+  - binary GLB bytes remain in browser-local IndexedDB and never enter scene JSON or localStorage
+scope:
+  - .glb-only license form with explicit rights confirmation and Traditional Chinese errors
+  - bounded GLB header, JSON, URI, node, mesh, bone, and vertex validation
+  - Mixamo, Blender, and VRM aliases mapped to 17 PoseMan joints
+  - rest-relative imported posing, joint picking, normalization, grounding, and owned-resource disposal
+  - SHA-256 IndexedDB storage, ordered asynchronous hydration, missing-asset warning, and scene v5 references
+  - Vite 8.2.1 and Rolldown code-splitting configuration
+protected:
+  - procedural mannequin posing, appearance, props, history, and v1-v4 scene loading
+  - no binary or base64 payload in scene JSON/localStorage
+verification:
+  - npm test: 33/33 PASS
+  - npm run build and npm run check: PASS
+  - npm audit --audit-level=high: 0 vulnerabilities
+  - root browser acceptance: authorization gate, import, pose, reload, malformed file, and missing asset PASS
+rollback:
+  - revert CHANGE-005 commit; schema v1-v4 remains readable, while v5 external references are ignored by older builds
+known_boundary:
+  - imported animation playback and a manual bone-remapping editor are deferred

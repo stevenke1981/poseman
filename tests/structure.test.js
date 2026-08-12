@@ -202,11 +202,32 @@ test('control panel uses accessible native accordion sections without changing c
     'currentPropSelect',
     'saveFileBtn',
     'loadFileBtn',
+    'glbFileInput',
+    'glbAssetName',
+    'glbLicenseType',
+    'glbAuthor',
+    'glbSource',
+    'glbLicenseNotes',
+    'glbLicenseConfirm',
+    'importGlbBtn',
+    'assetImportStatus',
+    'assetSummary',
   ];
   for (const id of requiredIds) {
     const occurrences = html.match(new RegExp(`\\bid="${id}"`, 'g')) || [];
     assert.equal(occurrences.length, 1, `${id} must exist exactly once`);
   }
+});
+
+test('GLB import form is .glb-only, acknowledged, and visibly reports status', () => {
+  const file = htmlIds.get('glbFileInput')?.[0];
+  assert.equal(file?.attrs.get('accept'), '.glb,model/gltf-binary');
+  assert.equal(htmlIds.get('glbLicenseConfirm')?.[0]?.attrs.get('type'), 'checkbox');
+  assert.equal(htmlIds.get('assetImportStatus')?.[0]?.attrs.get('role'), 'status');
+  assert.equal(htmlIds.get('assetSummary')?.[0]?.attrs.get('aria-live'), 'polite');
+  const uiSource = fs.readFileSync(path.join(here, '..', 'src', 'ui.js'), 'utf8');
+  assert.doesNotMatch(uiSource, /assetSummary\.innerHTML/);
+  assert.match(uiSource, /validateLicenseMetadata/);
 });
 
 test('HTML ids are globally unique and every centralized DOM reference resolves exactly once', () => {

@@ -254,6 +254,36 @@ input[type="range"] {
   line-height: 1.45;
 }
 
+.external-figure-card {
+  display: grid;
+  gap: 0.42rem;
+  margin-top: 0.8rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.external-figure-card h3 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.external-figure-card input,
+.external-figure-card select,
+.external-figure-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.asset-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.asset-status[data-tone='error'] { color: #ffaaa8; }
+.asset-status[data-tone='success'] { color: #8ee0b4; }
+
 .appearance-row {
   display: grid;
   grid-template-columns: 44px 1fr;

@@ -1,25 +1,24 @@
 plan:
-  objective: 交付 CHANGE-004 的掃描感寫實 PBR 程序人偶，保留姿勢、選取、多人物與 v1-v3 場景相容。
+  objective: 交付 CHANGE-005 授權 GLB 人體匯入、17 關節骨架映射、瀏覽器本機資產保存與 Vite 8 安全升級。
   tasks:
     - id: T1
-      task: 建立 deterministic per-figure PBR 材質與皮膚微表面紋理
-      output: MeshPhysicalMaterial、clearcoat/sheen/roughness、獨立 DataTexture 與安全 dispose
-      verify: npm test 材質隔離、texture dispose、shared geometry 不處置
+      task: 建立不可信 GLB 與授權資料的輸入契約
+      output: .glb-only、明確權利確認、https metadata、25 MiB 與結構上限、外部 URI 禁止
+      verify: parser/license/prototype/limit tests and malformed browser import
     - id: T2
-      task: 擴充掃描感頭臉、軀幹、四肢與接地足型
-      output: 可點選的眼窩/眼瞼/虹膜/瞳孔/角膜、鼻翼鼻孔、嘴唇、耳廓、鎖骨、手指、腳趾
-      verify: npm test ground bounds 與 pick mesh 上限；待主代理瀏覽器視覺驗收
+      task: 建立骨架映射與可操作外部人物
+      output: Mixamo/Blender/VRM aliases、17 joint controllers/pick proxies、rest-relative pose、置中接地
+      verify: unit tests plus root browser head rotation
     - id: T3
-      task: 加入眼色/膚質欄位並升版場景契約
-      output: v4 appearance 欄位、v1-v3 安全預設、重建保留 pose/position/selection
-      verify: npm test sanitizer/prototype/round-trip/rebuild；待主代理 persistence 驗收
+      task: 建立可攜場景引用與瀏覽器本機資產保存
+      output: IndexedDB SHA-256 blobs、scene v5 refs、ordered hydration、missing-asset warning
+      verify: round-trip tests plus root browser reload and missing-asset scenario
     - id: T4
-      task: 調整棚拍光線、色彩空間與文件
-      output: sRGB + ACES、key/fill/rim、README 與 CHANGE-004 evidence
-      verify: npm run build/check、git diff --check；待主代理 visual/export 驗收
+      task: 升級 Vite 8 並更新 Rolldown 設定
+      output: Vite 8.2.1 lockfile and build configuration
+      verify: build/check/audit with zero high vulnerabilities
     - id: T5
-      task: 主代理真人驗收與 baseline 判定
-      output: 瀏覽器人物細節、姿勢拖曳、多人物隔離、預覽/匯出、舊場景讀取證據
-      verify: 主代理實際瀏覽器驗收；完成前維持 pending
-status: completed
-note: CHANGE-004 以 PASSED_WITH_LIMITATIONS 驗收；程序化掃描感、互動與重新整理保存已由主代理實際瀏覽器操作通過，真實 photogrammetry 資產不在本次範圍。
+      task: 主代理真人驗收、獨立審查、baseline、commit 與 push
+      output: CHANGE-005 acceptance evidence and BASELINE-20260812-004
+      verify: browser evidence, reviewer approval, clean pushed commit
+status: completed_pending_commit_push

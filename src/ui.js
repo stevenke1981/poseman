@@ -19,6 +19,7 @@ import { state, chooseTransformTarget } from './state.js';
 import {
   figures,
   addFigure,
+  addImportedFigure,
   removeFigure,
   rebuildFigure,
   setActiveFigure,
@@ -31,10 +32,12 @@ import {
 import { props, addProp, removeProp, setActiveProp, setPropsChangeHandler } from './propsManager.js';
 import { clampPropScale, normalizePropRotation, canRemoveFigure } from './sceneSchema.js';
 import { transform } from './interaction.js';
-import { applyScene, scheduleSave, serializeScene, sanitizePose } from './persistence.js';
+import { applyScene, getSceneGeneration, scheduleSave, serializeScene, sanitizePose } from './persistence.js';
 import { withHistory, beginGesture, endGesture, undo, redo } from './history.js';
 import { applyActions, sceneSnapshot } from './aiActions.js';
 import { captureView, captureSheet } from './exporter.js';
+import { importGlbArrayBuffer, validateLicenseMetadata, GLB_LIMITS, LICENSE_TYPES } from './glbImporter.js';
+import { putAsset } from './assetStore.js';
 import {
   buildSystemPrompt,
   requestAI,
@@ -106,6 +109,16 @@ import {
   addFemaleFigureBtn,
   removeFigureBtn,
   figureManageHint,
+  glbFileInput,
+  glbAssetName,
+  glbLicenseType,
+  glbAuthor,
+  glbSource,
+  glbLicenseNotes,
+  glbLicenseConfirm,
+  importGlbBtn,
+  assetImportStatus,
+  assetSummary,
   currentPropSelect,
   addPropBtn,
   propRotY,
@@ -240,7 +253,7 @@ resetPoseBtn.addEventListener('click', () => {
 });
 
 function updateAppearance(patch) {
-  if (!state.activeFigure) return;
+  if (!state.activeFigure || state.activeFigure.imported || state.activeFigure.externalPending) return;
   const next = sanitizeAppearance({ ...state.activeFigure.appearance, ...patch });
   withHistory(() => {
     // Rebuild rather than mutating shared geometry so body profile and hair
@@ -261,7 +274,7 @@ skinQualitySelect.addEventListener('change', () => updateAppearance({ skinQualit
 appearanceResetBtn.addEventListener('click', () => updateAppearance(DEFAULT_APPEARANCE));
 
 genderBtn.addEventListener('click', () => {
-  if (!state.activeFigure) return;
+  if (!state.activeFigure || state.activeFigure.imported || state.activeFigure.externalPending) return;
   withHistory(() => {
     rebuildFigure(state.activeFigure, {
       female: !state.activeFigure.female,
@@ -306,7 +319,9 @@ function refreshFigureSelect() {
   figures.forEach((f, i) => {
     const option = document.createElement('option');
     option.value = String(i);
-    option.textContent = `人物 ${i + 1} ・ ${f.female ? '女性' : '男性'}`;
+    option.textContent = f.imported || f.externalPending
+      ? `人物 ${i + 1} ・ 外部：${f.assetName || 'GLB'}`
+      : `人物 ${i + 1} ・ ${f.female ? '女性' : '男性'}`;
     figureSelect.appendChild(option);
   });
   figureSelect.value = keep;
@@ -316,6 +331,7 @@ function refreshFigureSelect() {
     openPanelSection('figureSection');
     openPanelSection('appearanceSection');
   }
+  syncImportedFigureControls();
   // Selecting a figure clears the prop selection in figures.js; mirror that
   // state immediately in the prop controls so no stale slider remains active.
   if (typeof syncPropControls === 'function') syncPropControls();
@@ -329,6 +345,7 @@ figureSelect.addEventListener('change', () => {
   transform.detach();
   setActiveFigure(f);
   syncAppearanceControls(f.appearance);
+  syncImportedFigureControls(f);
   scheduleSave();
 });
 
@@ -338,6 +355,103 @@ function addManagedFigure(female) {
 }
 addMaleFigureBtn.addEventListener('click', () => addManagedFigure(false));
 addFemaleFigureBtn.addEventListener('click', () => addManagedFigure(true));
+
+function setAssetStatus(message, tone = '') {
+  assetImportStatus.textContent = message || '';
+  if (tone) assetImportStatus.dataset.tone = tone;
+  else delete assetImportStatus.dataset.tone;
+}
+
+function syncImportedFigureControls(figure = state.activeFigure) {
+  const imported = Boolean(figure?.imported || figure?.externalPending);
+  for (const control of [skinToneSelect, outfitSelect, bodyProfileSelect, hairStyleSelect, hairColorSelect, eyeColorSelect, skinQualitySelect, appearanceResetBtn, genderBtn]) {
+    control.disabled = imported;
+  }
+  if (imported) {
+    const licenseKey = figure.license?.licenseType;
+    const licenseLabel = typeof licenseKey === 'string' && Object.hasOwn(LICENSE_TYPES, licenseKey)
+      ? LICENSE_TYPES[licenseKey]
+      : '授權未標示';
+    assetSummary.textContent = `${figure.externalPending ? '等待外部資產：' : '目前外部人物：'}${figure.assetName || '未命名'} ・ ${licenseLabel}${figure.license?.author ? ` ・ 作者 ${figure.license.author}` : ''}${figure.license?.source ? ` ・ ${figure.license.source}` : ''}`;
+  } else {
+    assetSummary.textContent = '目前人物：程序化人偶';
+  }
+}
+
+async function importSelectedGlb() {
+  const file = glbFileInput.files?.[0];
+  if (!file) {
+    setAssetStatus('請先選擇 .glb 檔案。', 'error');
+    return;
+  }
+  if (!/\.glb$/i.test(file.name)) {
+    setAssetStatus('僅接受副檔名為 .glb 的檔案。', 'error');
+    return;
+  }
+  if (file.size > GLB_LIMITS.maxBytes) {
+    setAssetStatus(`GLB 超過 ${Math.round(GLB_LIMITS.maxBytes / 1024 / 1024)} MiB 上限。`, 'error');
+    return;
+  }
+  const license = validateLicenseMetadata({
+    assetName: glbAssetName.value,
+    licenseType: glbLicenseType.value,
+    author: glbAuthor.value,
+    source: glbSource.value,
+    notes: glbLicenseNotes.value,
+    confirmed: glbLicenseConfirm.checked,
+  });
+  if (!license.ok) {
+    setAssetStatus(license.errors.join(' '), 'error');
+    return;
+  }
+  importGlbBtn.disabled = true;
+  setAssetStatus('正在驗證 GLB 與骨架…');
+  const generation = getSceneGeneration();
+  const isCurrent = () => generation === getSceneGeneration();
+  let importedFigure = null;
+  let attached = false;
+  try {
+    const data = await file.arrayBuffer();
+    if (!isCurrent()) {
+      setAssetStatus('場景已變更，已取消過期 GLB 匯入。', 'error');
+      return;
+    }
+    importedFigure = await importGlbArrayBuffer(data, license.metadata);
+    if (!isCurrent()) {
+      importedFigure.dispose?.();
+      importedFigure = null;
+      setAssetStatus('場景已變更，已取消過期 GLB 匯入。', 'error');
+      return;
+    }
+    const assetId = await putAsset(data, license.metadata);
+    if (!isCurrent()) {
+      // Content-addressed records may already be shared by another figure or
+      // scene. Cancellation never deletes IndexedDB data; an eventual GC can
+      // reclaim unreferenced assets safely.
+      importedFigure.dispose?.();
+      importedFigure = null;
+      setAssetStatus('場景已變更，已取消過期 GLB 匯入。', 'error');
+      return;
+    }
+    importedFigure.assetRef.assetId = assetId;
+    withHistory(() => {
+      addImportedFigure(importedFigure, { assetId, assetName: license.metadata.assetName, license: license.metadata });
+    });
+    attached = true;
+    scheduleSave();
+    glbFileInput.value = '';
+    setAssetStatus(`匯入成功：${license.metadata.assetName}（${assetId.slice(0, 12)}…）`, 'success');
+  } catch (error) {
+    if (!attached) importedFigure?.dispose?.();
+    setAssetStatus(`匯入失敗：${error?.message || 'GLB 格式不正確。'}`, 'error');
+  } finally {
+    importGlbBtn.disabled = false;
+  }
+}
+importGlbBtn.addEventListener('click', importSelectedGlb);
+window.addEventListener('poseman-asset-warning', (event) => {
+  setAssetStatus(String(event.detail || '外部資產無法載入。'), 'error');
+});
 removeFigureBtn.addEventListener('click', () => {
   if (!canRemoveFigure(figures.length)) return;
   withHistory(removeFigure);

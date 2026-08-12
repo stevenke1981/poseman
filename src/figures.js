@@ -62,7 +62,9 @@ export function setActiveFigure(f) {
   notifyFiguresChange();
   if (!f) return;
   const idx = figures.indexOf(f);
-  figInfo.textContent = `人物 ${idx + 1} / ${figures.length} ・ ${f.female ? '女' : '男'}`;
+  figInfo.textContent = f.imported || f.externalPending
+    ? `人物 ${idx + 1} / ${figures.length} ・ ${f.externalPending ? '外部載入中' : '外部 GLB'}`
+    : `人物 ${idx + 1} / ${figures.length} ・ ${f.female ? '女' : '男'}`;
   if (figureSelect) figureSelect.value = String(idx);
   const appearance = sanitizeAppearance(f.appearance);
   skinToneSelect.value = appearance.skinTone;
@@ -85,6 +87,53 @@ export function addFigure(female, appearance) {
   figures.push(m);
   setActiveFigure(m);
   return m;
+}
+
+/** Add a validated, owned GLB figure while preserving the mannequin manager API. */
+export function addImportedFigure(figure, { assetId, license, assetName, position, pose } = {}) {
+  if (!figure?.group || !figure?.joints || !figure?.imported) throw new TypeError('外部人物資料不完整。');
+  const maxX = figures.reduce((a, f) => Math.max(a, Number(f?.group?.position?.x) || 0), -0.8);
+  const safePosition = position && typeof position === 'object' ? position : {};
+  figure.group.position.set(
+    Number.isFinite(Number(safePosition.x)) ? Number(safePosition.x) : (figures.length ? maxX + 0.8 : 0),
+    Number.isFinite(Number(safePosition.y)) ? Number(safePosition.y) : 0,
+    Number.isFinite(Number(safePosition.z)) ? Number(safePosition.z) : 0,
+  );
+  if (typeof assetId === 'string' && /^[a-f0-9]{64}$/i.test(assetId)) figure.assetRef.assetId = assetId.toLowerCase();
+  if (assetName) figure.assetName = String(assetName).slice(0, 120);
+  if (license && typeof license === 'object') figure.license = { ...license };
+  for (const mesh of figure.pickMeshes || []) mesh.userData.figure = figure;
+  scene.add(figure.group);
+  figures.push(figure);
+  if (pose && typeof pose === 'object') figure.setPose(pose);
+  setActiveFigure(figure);
+  return figure;
+}
+
+/** Replace a temporary external-asset placeholder without changing list order. */
+export function replaceFigureAt(index, figure, { assetId, license, assetName, position, pose } = {}) {
+  if (!Number.isInteger(index) || !figure?.group || !figure?.imported || !figures[index]) return null;
+  const previous = figures[index];
+  const wasActive = state.activeFigure === previous;
+  const fallback = position && typeof position === 'object' ? position : previous.group.position;
+  scene.remove(previous.group);
+  previous.dispose?.();
+  figure.group.position.set(
+    Number.isFinite(Number(fallback.x)) ? Number(fallback.x) : 0,
+    Number.isFinite(Number(fallback.y)) ? Number(fallback.y) : 0,
+    Number.isFinite(Number(fallback.z)) ? Number(fallback.z) : 0,
+  );
+  if (assetId) figure.assetRef.assetId = String(assetId).toLowerCase();
+  if (assetName) figure.assetName = String(assetName).slice(0, 120);
+  if (license && typeof license === 'object') figure.license = { ...license };
+  for (const mesh of figure.pickMeshes || []) mesh.userData.figure = figure;
+  scene.add(figure.group);
+  figures[index] = figure;
+  if (pose && typeof pose === 'object') figure.setPose(pose);
+  if (transform.object === previous.group) transform.attach(figure.group);
+  if (wasActive) setActiveFigure(figure);
+  else notifyFiguresChange();
+  return figure;
 }
 
 /** Rebuild one figure when a geometry-affecting appearance option changes. */

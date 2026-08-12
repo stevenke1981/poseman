@@ -1,10 +1,59 @@
 import { sanitizeAppearance } from './mannequin.js';
 
-// v4 adds eyeColor and skinQuality to figures[].appearance.  Sanitizers keep
-// v1-v3 records readable by filling the new fields from DEFAULT_APPEARANCE.
-export const SCENE_VERSION = 4;
+// v5 adds portable external-asset references.  Binary GLB payloads never enter
+// scene JSON; they live in IndexedDB and are addressed by SHA-256 asset id.
+// v1-v4 records remain readable with the same appearance/prop defaults.
+export const SCENE_VERSION = 5;
 export const PROP_SCALE_MIN = 0.25;
 export const PROP_SCALE_MAX = 3;
+
+const ASSET_ID = /^[a-f0-9]{64}$/i;
+const SAFE_LICENSE_TYPES = new Set(['own', 'cc0', 'cc-by-4.0', 'other']);
+
+function safeText(value, max = 500) {
+  return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max) : '';
+}
+
+export function sanitizeLicenseRecord(raw) {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const rawLicenseType = Object.hasOwn(source, 'licenseType') ? source.licenseType : undefined;
+  const licenseType = typeof rawLicenseType === 'string' && SAFE_LICENSE_TYPES.has(rawLicenseType)
+    ? rawLicenseType
+    : 'other';
+  const url = safeText(Object.hasOwn(source, 'source') ? source.source : '', 500);
+  let safeUrl = '';
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' && parsed.hostname && !parsed.username && !parsed.password) safeUrl = url;
+    } catch {
+      safeUrl = '';
+    }
+  }
+  return {
+    licenseType,
+    assetName: safeText(Object.hasOwn(source, 'assetName') ? source.assetName : '', 120),
+    author: safeText(Object.hasOwn(source, 'author') ? source.author : '', 160),
+    source: safeUrl,
+    notes: safeText(Object.hasOwn(source, 'notes') ? source.notes : '', 500),
+    confirmed: Object.hasOwn(source, 'confirmed') && source.confirmed === true,
+  };
+}
+
+export function sanitizeAssetRef(raw) {
+  const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const rawAssetId = Object.hasOwn(source, 'assetId') ? source.assetId : undefined;
+  const assetId = typeof rawAssetId === 'string' && ASSET_ID.test(rawAssetId) ? rawAssetId.toLowerCase() : '';
+  const mapping = {};
+  const rawMapping = Object.hasOwn(source, 'mapping') ? source.mapping : null;
+  if (rawMapping && typeof rawMapping === 'object' && !Array.isArray(rawMapping)) {
+    for (const name of ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'wristL', 'wristR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankleL', 'ankleR']) {
+      const value = Object.hasOwn(rawMapping, name) ? rawMapping[name] : undefined;
+      if (typeof value === 'string' && value.length > 0 && value.length <= 160) mapping[name] = value;
+    }
+  }
+  return assetId ? { assetId, mapping } : null;
+}
 
 export function canRemoveFigure(count) {
   return Number.isInteger(count) && count > 1;
@@ -53,7 +102,7 @@ export function normalizePropRotation(value) {
 // Pure scene-file helpers keep persistence contracts testable without
 // constructing the browser/WebGL scene.
 export function serializeFigureRecord(figure, pose) {
-  return {
+  const record = {
     female: Boolean(figure.female),
     appearance: sanitizeAppearance(figure.appearance),
     x: figure.group.position.x,
@@ -61,6 +110,16 @@ export function serializeFigureRecord(figure, pose) {
     z: figure.group.position.z,
     pose,
   };
+  if (figure?.assetRef?.assetId) {
+    const assetRef = sanitizeAssetRef(figure.assetRef);
+    if (assetRef) {
+      record.assetRef = assetRef;
+      record.license = sanitizeLicenseRecord(figure.license || {
+        assetName: figure.assetName,
+      });
+    }
+  }
+  return record;
 }
 
 export function captureFigureRebuildState(figure, pose) {
@@ -78,14 +137,20 @@ export function captureFigureRebuildState(figure, pose) {
 
 export function sanitizeFigureRecord(raw, sanitizePose = () => ({})) {
   const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  return {
-    female: Boolean(source.female),
-    appearance: sanitizeAppearance(source.appearance),
-    x: finiteOrNull(source.x),
-    y: finiteOrNull(source.y),
-    z: finiteOrNull(source.z),
-    pose: sanitizePose(source.pose),
+  const record = {
+    female: Object.hasOwn(source, 'female') && Boolean(source.female),
+    appearance: sanitizeAppearance(Object.hasOwn(source, 'appearance') ? source.appearance : undefined),
+    x: finiteOrNull(Object.hasOwn(source, 'x') ? source.x : undefined),
+    y: finiteOrNull(Object.hasOwn(source, 'y') ? source.y : undefined),
+    z: finiteOrNull(Object.hasOwn(source, 'z') ? source.z : undefined),
+    pose: sanitizePose(Object.hasOwn(source, 'pose') ? source.pose : undefined),
   };
+  const assetRef = sanitizeAssetRef(Object.hasOwn(source, 'assetRef') ? source.assetRef : undefined);
+  if (assetRef) {
+    record.assetRef = assetRef;
+    record.license = sanitizeLicenseRecord(Object.hasOwn(source, 'license') ? source.license : undefined);
+  }
+  return record;
 }
 
 export function serializePropRecord(prop) {

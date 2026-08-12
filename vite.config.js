@@ -7,12 +7,18 @@ export default defineConfig({
     postcss: { plugins: [] },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        // Split three.js into its own chunk so app-code edits do not
-        // invalidate the cached library bundle.
-        manualChunks: {
-          three: ['three'],
+        // Vite 8 uses Rolldown. Keep Three.js in a stable vendor chunk without
+        // relying on the removed Rollup object-form manualChunks option.
+        codeSplitting: {
+          groups: [
+            {
+              name: 'three',
+              test: /node_modules[\\/]three[\\/]/,
+              priority: 20,
+            },
+          ],
         },
       },
     },

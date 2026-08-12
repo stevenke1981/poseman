@@ -244,8 +244,8 @@ test('continuous silhouette uses capsules and restrained joint volumes', () => {
   }
 });
 
-test('prop v1/v2 defaults and v4 round-trip sanitize scale and rotation', () => {
-  assert.equal(SCENE_VERSION, 4);
+test('prop v1/v2 defaults and v5 round-trip sanitize scale and rotation', () => {
+  assert.equal(SCENE_VERSION, 5);
   assert.deepEqual(sanitizePropRecord({ type: 'chair', x: 1, rotY: 0 }), {
     type: 'chair', x: 1, y: null, z: null, rotY: 0, scale: 1,
   });
