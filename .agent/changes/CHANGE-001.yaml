@@ -1,0 +1,39 @@
+id: CHANGE-001
+title: natural-mannequin-and-appearance-controls
+classification: feature
+risk: medium
+status: accepted
+impact:
+  modules: mannequin, figures, ui, dom, persistence, index, style
+  data_contract: scene version 2 adds figures[].appearance; old scenes remain readable
+  protected_flows: joints, poses, placement, gender toggle, preview, export, props
+  rollback: revert this change set; no destructive migration performed
+files:
+  - src/mannequin.js
+  - src/parts.js
+  - src/figures.js
+  - src/persistence.js
+  - src/ui.js
+  - src/dom.js
+  - index.html
+  - src/style.css
+  - README.md
+  - src/sceneSchema.js
+  - tests/appearance.test.js
+  - package.json
+evidence:
+  - npm run build
+  - npm run check
+  - npm test (6 tests passed)
+  - node appearance sanitize/material isolation smoke
+  - node sanitize prototype-key regression smoke
+  - node mannequin dispose smoke (11 owned materials released, 0 shared geometries disposed)
+  - node Box3 ground-contact smoke (male min.y 0.006, female min.y 0.008)
+acceptance:
+  status: PASS
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  visible_result: PASS
+  critical_errors: NONE
+  note: 主代理已完成瀏覽器外觀、多人物隔離、性別切換、localStorage 重整、姿勢與預覽驗收；場景 schema v1/v2 由自動測試驗證。

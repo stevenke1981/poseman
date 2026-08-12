@@ -1,0 +1,21 @@
+plan:
+  objective: 交付可操作、可持久化且不污染多人物材質的外觀調整切片。
+  tasks:
+    - id: T1
+      task: 建立外觀 schema 與 walking skeleton
+      output: 有限膚色/服裝資料、sanitize 與獨立人物材質
+      verify: node appearance sanitize/material isolation smoke
+    - id: T2
+      task: 更新人偶外觀與控制面板
+      output: 頭臉、髮型、服裝分件、手足、男女比例與外觀選單
+      verify: npm run build
+    - id: T3
+      task: 接上持久化與相容處理
+      output: appearance 隨人物保存、匯入匯出，舊欄位回預設
+      verify: npm run check；待真人多人物/重整驗收
+    - id: T4
+      task: 主代理真人驗收與 baseline 判定
+      output: 瀏覽器操作、視覺與核心回歸證據
+      verify: 瀏覽器實際操作與 console error 檢查
+status: completed
+note: T1-T4 已完成，詳見 acceptance/CHANGE-001-acceptance.yaml 與 baseline.yaml。

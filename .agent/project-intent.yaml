@@ -1,0 +1,30 @@
+project: poseman
+intent:
+  goal: 提供外觀清楚、可調整姿勢且可匯出的 Three.js 繪圖參考人偶。
+  user_outcome: 使用者可在多人物場景中調整膚色與服裝風格，並保存、匯入、匯出後繼續擺姿勢。
+  primary_user_scenario: 選取人物 → 調整外觀 → 切換人物/性別 → 存檔或重整 → 外觀與姿勢仍正確。
+  in_scope:
+    - procedural mannequin silhouette and face detail
+    - finite per-figure appearance settings
+    - localStorage and scene JSON persistence
+  out_of_scope:
+    - custom texture uploads
+    - photorealistic or sexualized anatomy
+  constraints:
+    - preserve joint picking, dragging, preview, export, and existing pose schema
+    - no heavyweight test dependency
+  assumptions:
+    - appearance is a finite skin-tone/outfit vocabulary rather than arbitrary RGB input
+  protected_behavior:
+    - multi-figure placement and gender toggle preserve pose and position
+    - old scenes without appearance fields load with defaults
+  acceptance:
+    build_or_launch: PASS
+    requested_user_scenario: PASS
+    affected_regression: PASS
+    visible_result: PASS
+    critical_errors: NONE
+    evidence: npm test, npm run build, npm run check, in-app browser appearance/persistence/pose/preview acceptance
+validation:
+  status: passed
+  note: 2026-08-12 已由主代理完成瀏覽器實際操作、視覺與核心回歸驗收。

@@ -1,9 +1,19 @@
 import * as THREE from 'three';
-import { buildMannequin, DEG } from './mannequin.js';
+import { buildMannequin, DEG, sanitizeAppearance } from './mannequin.js';
 import { scene } from './scene.js';
 import { state } from './state.js';
 import { transform } from './interaction.js';
-import { figInfo, rotX, rotY, rotZ, rotXVal, rotYVal, rotZVal } from './dom.js';
+import {
+  figInfo,
+  rotX,
+  rotY,
+  rotZ,
+  rotXVal,
+  rotYVal,
+  rotZVal,
+  skinToneSelect,
+  outfitSelect,
+} from './dom.js';
 
 export const figures = [];
 
@@ -31,13 +41,17 @@ export function syncSliders() {
 
 export function setActiveFigure(f) {
   state.activeFigure = f;
+  if (!f) return;
   const idx = figures.indexOf(f);
   figInfo.textContent = `人物 ${idx + 1} / ${figures.length} ・ ${f.female ? '女' : '男'}`;
+  const appearance = sanitizeAppearance(f.appearance);
+  skinToneSelect.value = appearance.skinTone;
+  outfitSelect.value = appearance.outfit;
   syncSliders();
 }
 
-export function addFigure(female) {
-  const m = buildMannequin({ female });
+export function addFigure(female, appearance) {
+  const m = buildMannequin({ female, appearance });
   for (const mesh of m.pickMeshes) mesh.userData.figure = m;
   // New figures spawn right of the rightmost one; manual positions are kept.
   const maxX = figures.reduce((a, f) => Math.max(a, f.group.position.x), -0.8);
@@ -53,6 +67,7 @@ export function removeFigureAt(i) {
   const m = figures[i];
   if (transform.object === m.group) transform.detach();
   scene.remove(m.group);
+  m.dispose?.();
   figures.splice(i, 1);
   setActiveFigure(
     figures.includes(state.activeFigure) ? state.activeFigure : figures[figures.length - 1],

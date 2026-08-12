@@ -1,4 +1,13 @@
-import { buildMannequin, JOINT_NAMES, JOINT_LABELS, DEG } from './mannequin.js';
+import {
+  buildMannequin,
+  JOINT_NAMES,
+  JOINT_LABELS,
+  DEG,
+  SKIN_TONES,
+  OUTFIT_STYLES,
+  DEFAULT_APPEARANCE,
+  sanitizeAppearance,
+} from './mannequin.js';
 import { PRESETS, PRESET_LABELS, loadCustomPoses, saveCustomPoses } from './poses.js';
 import { PROP_TYPES } from './props.js';
 import { scene, camera, renderer, controls, grid, HOME_POS, HOME_TARGET } from './scene.js';
@@ -39,6 +48,9 @@ import {
   resetJointBtn,
   resetPoseBtn,
   genderBtn,
+  skinToneSelect,
+  outfitSelect,
+  appearanceResetBtn,
   resetViewBtn,
   addBtn,
   removeBtn,
@@ -100,6 +112,20 @@ for (const [key, def] of Object.entries(PROP_TYPES)) {
   opt.textContent = def.label;
   propSelect.appendChild(opt);
 }
+for (const [key, def] of Object.entries(SKIN_TONES)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  skinToneSelect.appendChild(opt);
+}
+for (const [key, def] of Object.entries(OUTFIT_STYLES)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  outfitSelect.appendChild(opt);
+}
+skinToneSelect.value = DEFAULT_APPEARANCE.skinTone;
+outfitSelect.value = DEFAULT_APPEARANCE.outfit;
 jointSelect.value = state.activeJointName;
 
 // ---------------------------------------------------------------- joint controls
@@ -144,6 +170,19 @@ resetPoseBtn.addEventListener('click', () => {
   scheduleSave();
 });
 
+function updateAppearance(patch) {
+  if (!state.activeFigure) return;
+  const next = sanitizeAppearance({ ...state.activeFigure.appearance, ...patch });
+  withHistory(() => state.activeFigure.setAppearance(next));
+  skinToneSelect.value = next.skinTone;
+  outfitSelect.value = next.outfit;
+  scheduleSave();
+}
+
+skinToneSelect.addEventListener('change', () => updateAppearance({ skinTone: skinToneSelect.value }));
+outfitSelect.addEventListener('change', () => updateAppearance({ outfit: outfitSelect.value }));
+appearanceResetBtn.addEventListener('click', () => updateAppearance(DEFAULT_APPEARANCE));
+
 genderBtn.addEventListener('click', () => {
   if (!state.activeFigure) return;
   withHistory(() => {
@@ -152,7 +191,11 @@ genderBtn.addEventListener('click', () => {
     const pos = state.activeFigure.group.position.clone();
     const oldGroup = state.activeFigure.group;
     scene.remove(oldGroup);
-    const m = buildMannequin({ female: !state.activeFigure.female });
+    state.activeFigure.dispose?.();
+    const m = buildMannequin({
+      female: !state.activeFigure.female,
+      appearance: state.activeFigure.appearance,
+    });
     m.setPose(pose);
     m.group.position.copy(pos);
     for (const mesh of m.pickMeshes) mesh.userData.figure = m;

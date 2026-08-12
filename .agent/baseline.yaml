@@ -1,0 +1,30 @@
+id: BASELINE-20260812-001
+status: passed
+accepted_features:
+  - upgraded stylized male and female mannequin appearance
+  - per-figure skin tone and outfit palette controls
+  - scene v2 appearance persistence with v1 defaults
+critical_user_flows:
+  - select a figure and change its skin tone and outfit
+  - switch figures without appearance leaking between them
+  - switch gender while preserving pose, position, and appearance
+  - reload and recover appearance from localStorage
+  - apply pose presets and enter preview mode
+protected_behavior:
+  - joint selection and pose manipulation
+  - multi-figure placement
+  - preview and export controls
+  - old scenes without appearance fields load with defaults
+public_interfaces:
+  - scene JSON version 2 with optional figures[].appearance
+data_compatibility:
+  - scene version 1 remains readable
+  - invalid appearance values fall back to defaults
+environment:
+  - Windows 2026-08-12
+  - Node built-in test runner
+  - Vite 5.4.21
+known_limitations:
+  - Three.js production chunk remains over Vite's 500 kB advisory threshold
+evidence:
+  - .agent/acceptance/CHANGE-001-acceptance.yaml

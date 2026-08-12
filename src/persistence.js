@@ -6,21 +6,15 @@ import { transform } from './interaction.js';
 import { JOINT_NAMES } from './mannequin.js';
 import { PROP_TYPES } from './props.js';
 import { gridToggle } from './dom.js';
+import { SCENE_VERSION, serializeFigureRecord, sanitizeFigureRecord } from './sceneSchema.js';
 
 const STORAGE_KEY = 'poseman-scene-v1';
-const SCENE_VERSION = 1;
 
 export function serializeScene() {
   return {
     version: SCENE_VERSION,
     grid: grid.visible,
-    figures: figures.map((f) => ({
-      female: f.female,
-      x: f.group.position.x,
-      y: f.group.position.y,
-      z: f.group.position.z,
-      pose: extractPose(f),
-    })),
+    figures: figures.map((f) => serializeFigureRecord(f, extractPose(f))),
     props: props.map((p) => ({
       type: p.type,
       x: p.group.position.x,
@@ -32,11 +26,6 @@ export function serializeScene() {
 }
 
 // ---------------------------------------------------------------- validation (T1-3)
-function finiteOrNull(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 export function sanitizePose(pose) {
   const out = {};
   if (!pose || typeof pose !== 'object' || Array.isArray(pose)) return out;
@@ -51,8 +40,9 @@ export function sanitizePose(pose) {
 export function applyScene(data) {
   transform.detach();
   for (const f of figures) {
-    // NOTE: never dispose geometries/materials here — they are shared caches in parts.js.
+    // Geometry remains in the shared cache; dispose only this figure's owned materials.
     f.group.removeFromParent();
+    f.dispose?.();
   }
   figures.length = 0;
   for (const p of props) p.group.removeFromParent();
@@ -73,14 +63,12 @@ export function applyScene(data) {
     : [];
   if (rawFigs.length) {
     for (const fd of rawFigs) {
-      const m = addFigure(Boolean(fd.female));
-      const x = finiteOrNull(fd.x);
-      const y = finiteOrNull(fd.y);
-      const z = finiteOrNull(fd.z);
-      if (x !== null) m.group.position.x = x;
-      if (y !== null) m.group.position.y = y;
-      if (z !== null) m.group.position.z = z;
-      const pose = sanitizePose(fd.pose);
+      const normalized = sanitizeFigureRecord(fd, sanitizePose);
+      const m = addFigure(normalized.female, normalized.appearance);
+      if (normalized.x !== null) m.group.position.x = normalized.x;
+      if (normalized.y !== null) m.group.position.y = normalized.y;
+      if (normalized.z !== null) m.group.position.z = normalized.z;
+      const pose = normalized.pose;
       if (Object.keys(pose).length) m.setPose(pose);
     }
   } else {

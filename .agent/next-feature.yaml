@@ -1,0 +1,5 @@
+evaluation_date: 2026-08-12
+autonomy: recommend_only
+candidate: responsive control panel sections
+evidence: browser acceptance showed the right panel is long and requires substantial scrolling after adding appearance controls
+reason_not_implemented: this request already used its one allowed automatic extension for the complete appearance-control slice

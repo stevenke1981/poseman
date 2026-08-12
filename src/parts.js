@@ -23,6 +23,8 @@ export const cylinderGeo = (rt, rb, h, seg = 16) =>
 
 export const boxGeo = (w, h, d) => cached(`box|${w}|${h}|${d}`, () => new THREE.BoxGeometry(w, h, d));
 
+// Props can share these immutable-by-convention materials. Mannequins use
+// per-figure materials in mannequin.js so appearance edits stay isolated.
 const matCache = new Map();
 export function mat(color, roughness = 0.85, metalness = 0.02) {
   const key = `${color}|${roughness}|${metalness}`;

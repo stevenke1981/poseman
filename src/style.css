@@ -151,6 +151,20 @@ input[type="range"] {
   accent-color: #7f8ff0;
 }
 
+.appearance-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 6px;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.appearance-row label {
+  margin: 0;
+  color: #cfd4e4;
+  font-size: 12px;
+}
+
 button {
   cursor: pointer;
   border: none;

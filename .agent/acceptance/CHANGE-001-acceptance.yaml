@@ -1,0 +1,22 @@
+change: CHANGE-001
+date: 2026-08-12
+status: PASS
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: NONE
+evidence:
+  - npm test: 6/6 passed
+  - npm run build: passed
+  - npm run check: passed
+  - browser: changed per-figure skin and outfit and visually confirmed isolation
+  - browser: gender toggle retained appearance
+  - browser: reload retained both figures appearance through localStorage
+  - browser: think and wave presets rendered with upgraded mannequin
+  - browser: preview hid editing UI and retained clean scene
+  - browser console: no errors in final scenario
+limitations:
+  - Vite reports the existing Three.js chunk-size warning over 500 kB
