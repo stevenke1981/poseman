@@ -1,6 +1,8 @@
 import { sanitizeAppearance } from './mannequin.js';
 
-export const SCENE_VERSION = 3;
+// v4 adds eyeColor and skinQuality to figures[].appearance.  Sanitizers keep
+// v1-v3 records readable by filling the new fields from DEFAULT_APPEARANCE.
+export const SCENE_VERSION = 4;
 export const PROP_SCALE_MIN = 0.25;
 export const PROP_SCALE_MAX = 3;
 

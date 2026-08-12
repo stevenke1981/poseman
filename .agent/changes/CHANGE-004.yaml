@@ -1,0 +1,38 @@
+id: CHANGE-004
+title: scan-realistic-pbr-mannequin
+classification: feature
+risk: medium
+status: accepted_with_limitations
+impact:
+  modules: mannequin, parts, figures, scene, sceneSchema, ui, dom, index, persistence, tests, README, project-intent
+  data_contract: scene version 4 adds figures[].appearance.eyeColor and figures[].appearance.skinQuality; v1-v3 figures remain readable with defaults
+  protected_flows: joint picking/dragging, pose and position rebuild retention, multi-figure material isolation, preview/export, shared geometry cache, grounded feet
+  rollback: revert this change set; no destructive migration performed
+appearance:
+  pbr: MeshPhysicalMaterial per figure with clearcoat, sheen, roughness, and deterministic skin DataTexture
+  face: skull/jaw/cheek/forehead/eye socket/eyelid/nose wing/nostril/lip/ear volumes plus iris/pupil/transparent cornea
+  body: collar bones, torso transition, tapered limb forms, fingers/thumbs, knee/calf, toe box and sole
+  lighting: ACESFilmicToneMapping, sRGB output, key/fill/rim studio rig with one shadow caster
+  disposal: owned materials and textures disposed once; shared geometry never disposed
+evidence:
+  - npm test (21 tests passed)
+  - npm run build (PASS; existing Three.js chunk advisory remains)
+  - npm run check (PASS; existing Three.js chunk advisory remains)
+  - source test confirms prototype-safe eye/skin appearance defaults and v4 round-trip
+  - source test confirms PBR/cornea materials and per-figure texture isolation
+  - source test confirms owned texture disposal and zero shared geometry disposal
+  - source test confirms grounded bounds and interactive pick mesh upper bound
+  - source test confirms capsule-based continuous limbs/fitted cloth and restrained shoulder/elbow/knee joint volumes
+  - root in-app browser front/side close visual review passed with empty console errors/warnings
+  - root exercised eye/skin controls, multi-figure synchronization, head pose, and reload persistence
+acceptance:
+  status: passed_with_limitations
+  build_or_launch: PASS
+  requested_user_scenario: PASS_WITH_LIMITATION
+  affected_regression: PASS
+  visible_result: PASS
+  browser: PASS
+  visual: PASS
+  persistence: PASS
+  critical_errors: PASS
+  note: 程序化掃描感與互動流程已通過；不宣稱為真實攝影測量掃描資產。v2 UI 讀檔受瀏覽器 file chooser timeout，改由 21 項可重跑測試覆蓋 v1-v3 相容。

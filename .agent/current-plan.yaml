@@ -1,25 +1,25 @@
 plan:
-  objective: 交付 CHANGE-003 的可摺疊控制面板，降低長面板捲動並保持既有操作契約。
+  objective: 交付 CHANGE-004 的掃描感寫實 PBR 程序人偶，保留姿勢、選取、多人物與 v1-v3 場景相容。
   tasks:
     - id: T1
-      task: 將面板分為七個原生 details/summary 區塊
-      output: 人物管理、姿勢與關節、人物外觀、姿勢工具、匯出參考圖、物品管理、場景檔案
-      verify: index 結構測試確認 section 數量、順序、summary 與既有 element id 唯一
+      task: 建立 deterministic per-figure PBR 材質與皮膚微表面紋理
+      output: MeshPhysicalMaterial、clearcoat/sheen/roughness、獨立 DataTexture 與安全 dispose
+      verify: npm test 材質隔離、texture dispose、shared geometry 不處置
     - id: T2
-      task: 設定初始展開與自動展開行為
-      output: 前三區預設展開；選取物品自動開啟物品管理；切換人物自動開啟人物管理/外觀
-      verify: production UI callback/source review；待主代理瀏覽器驗收
+      task: 擴充掃描感頭臉、軀幹、四肢與接地足型
+      output: 可點選的眼窩/眼瞼/虹膜/瞳孔/角膜、鼻翼鼻孔、嘴唇、耳廓、鎖骨、手指、腳趾
+      verify: npm test ground bounds 與 pick mesh 上限；待主代理瀏覽器視覺驗收
     - id: T3
-      task: 補齊鍵盤 focus、窄螢幕與預覽樣式
-      output: summary focus-visible、原生鍵盤操作、手機/窄高度保留底部空間、preview 維持隱藏 panel
-      verify: npm run build/check；待主代理窄視窗與預覽驗收
+      task: 加入眼色/膚質欄位並升版場景契約
+      output: v4 appearance 欄位、v1-v3 安全預設、重建保留 pose/position/selection
+      verify: npm test sanitizer/prototype/round-trip/rebuild；待主代理 persistence 驗收
     - id: T4
-      task: 更新 README、next-feature、CHANGE-003 evidence
-      output: 文件描述摺疊面板，驗收狀態保持 pending
-      verify: YAML/source review
+      task: 調整棚拍光線、色彩空間與文件
+      output: sRGB + ACES、key/fill/rim、README 與 CHANGE-004 evidence
+      verify: npm run build/check、git diff --check；待主代理 visual/export 驗收
     - id: T5
       task: 主代理真人驗收與 baseline 判定
-      output: 瀏覽器操作、鍵盤 focus、窄高度、預覽與既有功能回歸證據
-      verify: 主代理實際瀏覽器驗收
+      output: 瀏覽器人物細節、姿勢拖曳、多人物隔離、預覽/匯出、舊場景讀取證據
+      verify: 主代理實際瀏覽器驗收；完成前維持 pending
 status: completed
-note: CHANGE-002 and CHANGE-003 have passed automated, browser, visual, persistence, narrow-viewport, and review gates.
+note: CHANGE-004 以 PASSED_WITH_LIMITATIONS 驗收；程序化掃描感、互動與重新整理保存已由主代理實際瀏覽器操作通過，真實 photogrammetry 資產不在本次範圍。

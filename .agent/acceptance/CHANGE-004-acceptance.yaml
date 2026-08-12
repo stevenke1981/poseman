@@ -1,0 +1,25 @@
+change: CHANGE-004
+date: 2026-08-12
+status: PASSED_WITH_LIMITATIONS
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS_WITH_LIMITATION
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: PASS
+evidence:
+  - npm test: 21/21 passed
+  - npm run build: passed with existing Three.js chunk-size advisory
+  - npm run check: passed with existing Three.js chunk-size advisory
+  - source/runtime smoke: PBR materials, eye/cornea layers, texture isolation/disposal, grounded bounds, and pick mesh budget
+  - second-pass source/runtime smoke: capsule-based limbs, fitted-cloth layers, and restrained joint volumes
+  - root in-app browser: front close-up and rotated side view inspected; continuous limbs, fitted torso, face layers, PBR highlights, grounded feet, and no orange reference sphere observed
+  - root in-app browser: deep skin tone, green eyes, smooth skin, multi-figure switching, and 24-degree head rotation exercised
+  - root in-app browser: reload retained green eyes, smooth skin, deep skin tone, and the 24-degree head pose; console errors/warnings remained empty
+  - independent code review: APPROVE after two review rounds; 18 gender/body/hair combinations and six presets retained finite bounds and pick contracts
+limitations:
+  - This is a scan-inspired procedural articulated mannequin, not a photogrammetry scan or externally imported human mesh
+  - The in-app browser file chooser timed out during the v2 JSON upload attempt; v1-v3 compatibility is covered by repeatable schema tests rather than a completed UI upload
+  - npm audit reports an existing Vite/esbuild development-server advisory whose automated fix requires a breaking Vite 8 upgrade
+  - The existing Three.js production chunk remains above Vite's 500 kB advisory threshold

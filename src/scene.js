@@ -9,6 +9,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
 app.appendChild(renderer.domElement);
 
 export const scene = new THREE.Scene();
@@ -27,19 +30,28 @@ export const camera = new THREE.PerspectiveCamera(
 camera.position.copy(HOME_POS);
 
 // ---------------------------------------------------------------- lights
-scene.add(new THREE.HemisphereLight(0xffffff, 0x7782a8, 1.15));
-const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-sun.position.set(4.5, 8, 3.5);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -5;
-sun.shadow.camera.right = 5;
-sun.shadow.camera.top = 6;
-sun.shadow.camera.bottom = -3;
-sun.shadow.camera.near = 1;
-sun.shadow.camera.far = 25;
-sun.shadow.bias = -0.0004;
-scene.add(sun);
+// Compact three-point studio rig: one shadow-casting key, soft sky fill, and a
+// low-power rim to separate the silhouette from the cool background.  Keeping
+// a single shadow map preserves interaction/render performance.
+scene.add(new THREE.HemisphereLight(0xf1f4ff, 0x59647e, 1.0));
+const key = new THREE.DirectionalLight(0xfff1df, 2.7);
+key.position.set(4.5, 8, 3.5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -5;
+key.shadow.camera.right = 5;
+key.shadow.camera.top = 6;
+key.shadow.camera.bottom = -3;
+key.shadow.camera.near = 1;
+key.shadow.camera.far = 25;
+key.shadow.bias = -0.0004;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xb8d0ff, 0.75);
+fill.position.set(-4, 4, 2);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffc0aa, 0.9);
+rim.position.set(-2, 5, -5);
+scene.add(rim);
 
 // ---------------------------------------------------------------- ground
 const ground = new THREE.Mesh(

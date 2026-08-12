@@ -17,6 +17,8 @@ import {
   bodyProfileSelect,
   hairStyleSelect,
   hairColorSelect,
+  eyeColorSelect,
+  skinQualitySelect,
   figureSelect,
 } from './dom.js';
 
@@ -68,6 +70,8 @@ export function setActiveFigure(f) {
   bodyProfileSelect.value = appearance.bodyProfile;
   hairStyleSelect.value = appearance.hairStyle;
   hairColorSelect.value = appearance.hairColor;
+  eyeColorSelect.value = appearance.eyeColor;
+  skinQualitySelect.value = appearance.skinQuality;
   syncSliders();
 }
 

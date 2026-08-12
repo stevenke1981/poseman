@@ -1,4 +1,4 @@
-id: BASELINE-20260812-002
+id: BASELINE-20260812-003
 status: passed
 accepted_features:
   - upgraded stylized male and female mannequin appearance
@@ -10,6 +10,9 @@ accepted_features:
   - floor lamp and sofa procedural reference props
   - scene v3 prop scale persistence with v1/v2 compatibility
   - seven accessible collapsible control-panel sections
+  - scan-inspired articulated mannequin with continuous limb and torso silhouettes
+  - per-figure MeshPhysicalMaterial skin, deterministic micro-surface texture, layered eyes, and studio lighting
+  - eye-color and skin-quality controls with scene v4 persistence
 critical_user_flows:
   - select a figure and change its skin tone and outfit
   - switch figures without appearance leaking between them
@@ -20,6 +23,8 @@ critical_user_flows:
   - add props, tune rotation and scale, then reload the scene
   - use move mode and undo without stale selection or gizmo state
   - operate the accordion by keyboard and on a narrow viewport
+  - inspect front and side close-ups while preserving joint posing and picking
+  - change eye color and skin quality independently per figure and recover them after reload
 protected_behavior:
   - joint selection and pose manipulation
   - multi-figure placement
@@ -29,9 +34,10 @@ protected_behavior:
   - prototype-like prop keys are rejected safely
   - accordion state remains transient and outside scene JSON
 public_interfaces:
-  - scene JSON version 3 with optional figures[].appearance and props[].scale
+  - scene JSON version 4 with optional figures[].appearance.eyeColor, figures[].appearance.skinQuality, and props[].scale
 data_compatibility:
   - scene version 1 remains readable
+  - scene versions 2 and 3 remain readable with default eye color and skin quality
   - invalid appearance values fall back to defaults
   - scene versions 1 and 2 default prop scale to 1
 environment:
@@ -40,7 +46,10 @@ environment:
   - Vite 5.4.21
 known_limitations:
   - Three.js production chunk remains over Vite's 500 kB advisory threshold
+  - the upgraded character is a scan-inspired procedural model, not a photogrammetry scan or imported human asset
+  - existing Vite/esbuild development-server advisories require a separately approved breaking Vite 8 upgrade
 evidence:
   - .agent/acceptance/CHANGE-001-acceptance.yaml
   - .agent/acceptance/CHANGE-002-acceptance.yaml
   - .agent/acceptance/CHANGE-003-acceptance.yaml
+  - .agent/acceptance/CHANGE-004-acceptance.yaml

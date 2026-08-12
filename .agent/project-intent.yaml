@@ -4,20 +4,20 @@ intent:
   user_outcome: 使用者可在多人物場景中管理角色與繪圖道具，調整膚色、服裝、體態、髮型與髮色，並保存、匯入、匯出後繼續擺姿勢。
   primary_user_scenario: 選取人物 → 新增/移除角色 → 調整外觀 → 新增/選取/縮放/旋轉物品 → 存檔或重整 → 外觀、姿勢與場景仍正確。
   in_scope:
-    - procedural mannequin silhouette and face detail
+    - procedural mannequin silhouette and scan-realistic face/body detail
     - finite per-figure appearance settings
     - explicit figure and prop management controls
     - procedural drawing-reference props and safe prop transforms
     - localStorage and scene JSON persistence
   out_of_scope:
     - custom texture uploads
-    - photorealistic or sexualized anatomy
+    - imported photoreal scanned assets or sexualized anatomy
   constraints:
     - preserve joint picking, dragging, preview, export, and existing pose schema
-    - preserve v1/v2 scenes while writing scene v3 with safe prop scale defaults
+    - preserve v1-v3 scenes while writing scene v4 with safe appearance and prop-scale defaults
     - no heavyweight test dependency
   assumptions:
-    - appearance is a finite skin-tone/outfit/body/hair vocabulary rather than arbitrary values
+    - appearance is a finite skin-tone/outfit/body/hair/eye/skin-quality vocabulary rather than arbitrary values
   protected_behavior:
     - multi-figure placement and gender toggle preserve pose and position
     - old scenes without appearance fields load with defaults

@@ -28,6 +28,8 @@ test('appearance sanitizer accepts finite options and rejects prototype keys', (
     bodyProfile: 'balanced',
     hairStyle: 'short',
     hairColor: 'espresso',
+    eyeColor: 'brown',
+    skinQuality: 'natural',
   });
   assert.deepEqual(sanitizeAppearance({ skin: 'tan', style: 'terracotta' }), {
     skinTone: 'tan',
@@ -35,6 +37,8 @@ test('appearance sanitizer accepts finite options and rejects prototype keys', (
     bodyProfile: 'balanced',
     hairStyle: 'short',
     hairColor: 'espresso',
+    eyeColor: 'brown',
+    skinQuality: 'natural',
   });
   assert.deepEqual(
     sanitizeAppearance({ bodyProfile: 'athletic', hairStyle: 'long', hairColor: 'auburn' }),
@@ -81,6 +85,41 @@ test('dispose releases owned materials but never shared geometry', () => {
   assert.equal(geometryDisposals, 0);
 });
 
+test('scan-real PBR face materials and textures stay per-figure', () => {
+  const first = buildMannequin({ appearance: { eyeColor: 'blue', skinQuality: 'smooth' } });
+  const second = buildMannequin({ appearance: { eyeColor: 'green', skinQuality: 'natural' } });
+  try {
+    const materials = new Set(first.pickMeshes.map((mesh) => mesh.material));
+    assert.ok([...materials].some((material) => material.isMeshPhysicalMaterial && material.clearcoat > 0));
+    assert.ok([...materials].some((material) => material.transmission > 0 && material.transparent));
+    const maps = [...materials].map((material) => material.map).filter(Boolean);
+    assert.ok(maps.length >= 2);
+    assert.equal(new Set(maps).size, 1, 'skin map is shared within one figure only');
+    const mapBytes = maps[0].image.data;
+    const average = mapBytes.reduce((sum, value, index) => (index % 4 === 3 ? sum : sum + value), 0) / (mapBytes.length * 0.75);
+    assert.ok(average > 220, `skin map should be near-white variation, average=${average}`);
+    assert.notEqual(maps[0], new Set(second.pickMeshes.map((mesh) => mesh.material.map).filter(Boolean)).values().next().value);
+    assert.ok(first.pickMeshes.length < 180, `pick mesh count ${first.pickMeshes.length} should stay interactive`);
+  } finally {
+    first.dispose();
+    second.dispose();
+  }
+});
+
+test('owned procedural textures dispose once and shared geometry survives', () => {
+  const figure = buildMannequin({ appearance: { skinQuality: 'smooth' } });
+  const textures = new Set(figure.pickMeshes.map((mesh) => mesh.material.map).filter(Boolean));
+  const geometries = new Set(figure.pickMeshes.map((mesh) => mesh.geometry));
+  let textureDisposals = 0;
+  let geometryDisposals = 0;
+  for (const texture of textures) texture.addEventListener('dispose', () => textureDisposals++);
+  for (const geometry of geometries) geometry.addEventListener('dispose', () => geometryDisposals++);
+  figure.dispose();
+  figure.dispose();
+  assert.equal(textureDisposals, textures.size);
+  assert.equal(geometryDisposals, 0);
+});
+
 test('legacy figure and v2 scene record round-trip preserve safe appearance', () => {
   const legacy = sanitizeFigureRecord(
     { female: true, x: '1.25', y: 'bad', z: -0.5, pose: { chest: [8, 0, 0] } },
@@ -104,9 +143,26 @@ test('legacy figure and v2 scene record round-trip preserve safe appearance', ()
       bodyProfile: 'balanced',
       hairStyle: 'short',
       hairColor: 'espresso',
+      eyeColor: 'brown',
+      skinQuality: 'natural',
     });
     assert.deepEqual([roundTrip.x, roundTrip.y, roundTrip.z], [1.1, 0.4, -0.8]);
     assert.deepEqual(roundTrip.pose, source.pose);
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('v4 eye color and skin quality round-trip while v1-v3 default safely', () => {
+  const figure = buildMannequin({ appearance: { eyeColor: 'gray', skinQuality: 'smooth' } });
+  try {
+    const source = serializeFigureRecord(figure, { head: [2, 0, 0] });
+    const restored = sanitizeFigureRecord(source, (pose) => pose);
+    assert.equal(restored.appearance.eyeColor, 'gray');
+    assert.equal(restored.appearance.skinQuality, 'smooth');
+    const legacy = sanitizeFigureRecord({ female: false, appearance: { eyeColor: 'constructor' } }, (pose) => pose);
+    assert.equal(legacy.appearance.eyeColor, DEFAULT_APPEARANCE.eyeColor);
+    assert.equal(legacy.appearance.skinQuality, DEFAULT_APPEARANCE.skinQuality);
   } finally {
     figure.dispose();
   }
@@ -162,6 +218,8 @@ test('body profile and hair options produce safe, distinct rebuilds', () => {
       bodyProfile: 'athletic',
       hairStyle: 'long',
       hairColor: 'auburn',
+      eyeColor: 'brown',
+      skinQuality: 'natural',
     });
     const baseShoulder = base.joints.shoulderL.position.x;
     const variantShoulder = variant.joints.shoulderL.position.x;
@@ -172,8 +230,22 @@ test('body profile and hair options produce safe, distinct rebuilds', () => {
   }
 });
 
-test('prop v1/v2 defaults and v3 round-trip sanitize scale and rotation', () => {
-  assert.equal(SCENE_VERSION, 3);
+test('continuous silhouette uses capsules and restrained joint volumes', () => {
+  const figure = buildMannequin();
+  try {
+    const capsuleCount = figure.pickMeshes.filter((mesh) => mesh.geometry?.type === 'CapsuleGeometry').length;
+    assert.ok(capsuleCount >= 20, `expected continuous limb/cloth capsules, got ${capsuleCount}`);
+    for (const name of ['shoulderL', 'shoulderR', 'elbowL', 'elbowR', 'kneeL', 'kneeR']) {
+      const jointSpheres = figure.joints[name].children.filter((mesh) => mesh.geometry?.type === 'SphereGeometry');
+      assert.ok(jointSpheres.every((mesh) => Math.max(mesh.scale.x, mesh.scale.y, mesh.scale.z) <= 1.06), `${name} has oversized visible joint volume`);
+    }
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('prop v1/v2 defaults and v4 round-trip sanitize scale and rotation', () => {
+  assert.equal(SCENE_VERSION, 4);
   assert.deepEqual(sanitizePropRecord({ type: 'chair', x: 1, rotY: 0 }), {
     type: 'chair', x: 1, y: null, z: null, rotY: 0, scale: 1,
   });

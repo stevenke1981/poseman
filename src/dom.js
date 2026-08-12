@@ -30,6 +30,8 @@ export const outfitSelect = document.getElementById('outfitSelect');
 export const bodyProfileSelect = document.getElementById('bodyProfileSelect');
 export const hairStyleSelect = document.getElementById('hairStyleSelect');
 export const hairColorSelect = document.getElementById('hairColorSelect');
+export const eyeColorSelect = document.getElementById('eyeColorSelect');
+export const skinQualitySelect = document.getElementById('skinQualitySelect');
 export const appearanceResetBtn = document.getElementById('appearanceResetBtn');
 export const resetViewBtn = document.getElementById('resetViewBtn');
 

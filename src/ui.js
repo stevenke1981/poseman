@@ -7,6 +7,8 @@ import {
   BODY_PROFILES,
   HAIR_STYLES,
   HAIR_COLORS,
+  EYE_COLORS,
+  SKIN_QUALITIES,
   DEFAULT_APPEARANCE,
   sanitizeAppearance,
 } from './mannequin.js';
@@ -58,6 +60,8 @@ import {
   bodyProfileSelect,
   hairStyleSelect,
   hairColorSelect,
+  eyeColorSelect,
+  skinQualitySelect,
   appearanceResetBtn,
   resetViewBtn,
   rotatePropBtn,
@@ -172,11 +176,25 @@ for (const [key, def] of Object.entries(HAIR_COLORS)) {
   opt.textContent = def.label;
   hairColorSelect.appendChild(opt);
 }
+for (const [key, def] of Object.entries(EYE_COLORS)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  eyeColorSelect.appendChild(opt);
+}
+for (const [key, def] of Object.entries(SKIN_QUALITIES)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  skinQualitySelect.appendChild(opt);
+}
 skinToneSelect.value = DEFAULT_APPEARANCE.skinTone;
 outfitSelect.value = DEFAULT_APPEARANCE.outfit;
 bodyProfileSelect.value = DEFAULT_APPEARANCE.bodyProfile;
 hairStyleSelect.value = DEFAULT_APPEARANCE.hairStyle;
 hairColorSelect.value = DEFAULT_APPEARANCE.hairColor;
+eyeColorSelect.value = DEFAULT_APPEARANCE.eyeColor;
+skinQualitySelect.value = DEFAULT_APPEARANCE.skinQuality;
 jointSelect.value = state.activeJointName;
 
 // ---------------------------------------------------------------- joint controls
@@ -238,6 +256,8 @@ outfitSelect.addEventListener('change', () => updateAppearance({ outfit: outfitS
 bodyProfileSelect.addEventListener('change', () => updateAppearance({ bodyProfile: bodyProfileSelect.value }));
 hairStyleSelect.addEventListener('change', () => updateAppearance({ hairStyle: hairStyleSelect.value }));
 hairColorSelect.addEventListener('change', () => updateAppearance({ hairColor: hairColorSelect.value }));
+eyeColorSelect.addEventListener('change', () => updateAppearance({ eyeColor: eyeColorSelect.value }));
+skinQualitySelect.addEventListener('change', () => updateAppearance({ skinQuality: skinQualitySelect.value }));
 appearanceResetBtn.addEventListener('click', () => updateAppearance(DEFAULT_APPEARANCE));
 
 genderBtn.addEventListener('click', () => {
@@ -276,6 +296,8 @@ function syncAppearanceControls(appearance) {
   bodyProfileSelect.value = safe.bodyProfile;
   hairStyleSelect.value = safe.hairStyle;
   hairColorSelect.value = safe.hairColor;
+  eyeColorSelect.value = safe.eyeColor;
+  skinQualitySelect.value = safe.skinQuality;
 }
 
 function refreshFigureSelect() {
