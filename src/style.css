@@ -284,6 +284,51 @@ input[type="range"] {
 .asset-status[data-tone='error'] { color: #ffaaa8; }
 .asset-status[data-tone='success'] { color: #8ee0b4; }
 
+.glb-mapping-panel {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, #181a20 90%, var(--panel));
+}
+
+.glb-mapping-panel h4 {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.glb-mapping-rows {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.glb-mapping-row,
+.mapping-preset-row {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 0.7fr) minmax(0, 1.3fr);
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.glb-mapping-row label,
+.mapping-preset-row label {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.mapping-preset-row button {
+  grid-column: span 1;
+}
+
+@media (max-width: 480px) {
+  .glb-mapping-row,
+  .mapping-preset-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .appearance-row {
   display: grid;
   grid-template-columns: 44px 1fr;

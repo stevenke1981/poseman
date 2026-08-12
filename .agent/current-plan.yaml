@@ -1,24 +1,20 @@
 plan:
-  objective: 交付 CHANGE-005 授權 GLB 人體匯入、17 關節骨架映射、瀏覽器本機資產保存與 Vite 8 安全升級。
+  objective: 交付 CHANGE-006 GLB 骨架診斷、嚴格手動映射與安全具名預設，保護 CHANGE-005。
   tasks:
-    - id: T1
-      task: 建立不可信 GLB 與授權資料的輸入契約
-      output: .glb-only、明確權利確認、https metadata、25 MiB 與結構上限、外部 URI 禁止
-      verify: parser/license/prototype/limit tests and malformed browser import
-    - id: T2
-      task: 建立骨架映射與可操作外部人物
-      output: Mixamo/Blender/VRM aliases、17 joint controllers/pick proxies、rest-relative pose、置中接地
-      verify: unit tests plus root browser head rotation
-    - id: T3
-      task: 建立可攜場景引用與瀏覽器本機資產保存
-      output: IndexedDB SHA-256 blobs、scene v5 refs、ordered hydration、missing-asset warning
-      verify: round-trip tests plus root browser reload and missing-asset scenario
-    - id: T4
-      task: 升級 Vite 8 並更新 Rolldown 設定
-      output: Vite 8.2.1 lockfile and build configuration
-      verify: build/check/audit with zero high vulnerabilities
-    - id: T5
-      task: 主代理真人驗收、獨立審查、baseline、commit 與 push
-      output: CHANGE-005 acceptance evidence and BASELINE-20260812-004
-      verify: browser evidence, reviewer approval, clean pushed commit
-status: completed_pending_commit_push
+    - id: C6-T1
+      task: 建立 parse/inspect/strict mapping walking skeleton
+      output: 實際 SkinnedMesh skeleton diagnostics and manual mapping validator
+      verify: glbImporter focused tests
+    - id: C6-T2
+      task: 接入 17 行可存取 UI 與 bounded mapping presets
+      output: diagnosis panel, dropdown editor, localStorage preset actions
+      verify: structure tests and root browser workflow
+    - id: C6-T3
+      task: 保護 v5 hydrate、取消釋放與 opaque fixture
+      output: mapping-priority hydration, generation disposal, CC0 opaque GLB
+      verify: scene and resource tests
+    - id: C6-T4
+      task: 回歸與真人驗收
+      output: gates evidence, independent review, and root browser acceptance
+      verify: npm test/build/check/audit/diff-check and root browser
+status: completed

@@ -68,6 +68,33 @@ const binChunk = Buffer.alloc(8);
 binChunk.writeUInt32LE(bin.length, 0);
 binChunk.writeUInt32LE(0x004e4942, 4);
 fs.writeFileSync(path.join(outDir, 'mini-humanoid.glb'), Buffer.concat([header, jsonChunk, jsonPadded, binChunk, bin]));
-fs.writeFileSync(path.join(outDir, 'LICENSE.txt'), 'CC0 1.0 / 自有原始測試資產：PoseMan repository fixture\n');
+fs.writeFileSync(path.join(outDir, 'LICENSE.txt'), 'SPDX-License-Identifier: CC0-1.0\n\nThis self-authored PoseMan test fixture is dedicated to the public domain under\nCreative Commons CC0 1.0 Universal:\nhttps://creativecommons.org/publicdomain/zero/1.0/\n');
 fs.writeFileSync(path.join(outDir, 'README.md'), '# mini-humanoid fixture\n\n由 `scripts/generate_fixture.mjs` 產生，無外部資產、無動畫、無外部 URI。授權為 CC0 1.0。\n');
+
+// The opaque-name variant intentionally does not contain any PoseMan alias.
+// It exercises the CHANGE-006 manual mapping editor while keeping the same
+// self-authored CC0 geometry, hierarchy, skin, and no-animation guarantees.
+const opaqueDir = path.resolve('fixtures/opaque_humanoid');
+const opaqueNames = names.map((_, index) => `rigbone_${String(index + 1).padStart(2, '0')}`);
+const opaqueJson = {
+  ...json,
+  nodes: json.nodes.map((node, index) => index < names.length ? { ...node, name: opaqueNames[index] } : node),
+};
+const opaqueJsonBytes = Buffer.from(JSON.stringify(opaqueJson));
+const opaqueJsonPadded = Buffer.concat([opaqueJsonBytes, Buffer.alloc((4 - (opaqueJsonBytes.length % 4)) % 4, 0x20)]);
+const opaqueTotalLength = 12 + 8 + opaqueJsonPadded.length + 8 + bin.length;
+const opaqueHeader = Buffer.alloc(12);
+opaqueHeader.writeUInt32LE(0x46546c67, 0);
+opaqueHeader.writeUInt32LE(2, 4);
+opaqueHeader.writeUInt32LE(opaqueTotalLength, 8);
+const opaqueJsonChunk = Buffer.alloc(8);
+opaqueJsonChunk.writeUInt32LE(opaqueJsonPadded.length, 0);
+opaqueJsonChunk.writeUInt32LE(0x4e4f534a, 4);
+const opaqueBinChunk = Buffer.alloc(8);
+opaqueBinChunk.writeUInt32LE(bin.length, 0);
+opaqueBinChunk.writeUInt32LE(0x004e4942, 4);
+fs.mkdirSync(opaqueDir, { recursive: true });
+fs.writeFileSync(path.join(opaqueDir, 'opaque-humanoid.glb'), Buffer.concat([opaqueHeader, opaqueJsonChunk, opaqueJsonPadded, opaqueBinChunk, bin]));
+fs.writeFileSync(path.join(opaqueDir, 'LICENSE.txt'), 'SPDX-License-Identifier: CC0-1.0\n\nThis self-authored PoseMan test fixture is dedicated to the public domain under\nCreative Commons CC0 1.0 Universal.\n');
+fs.writeFileSync(path.join(opaqueDir, 'README.md'), '# opaque-humanoid fixture\n\n由 `scripts/generate_fixture.mjs` 產生，骨骼名稱刻意不含 PoseMan alias，用於 CHANGE-006 手動映射測試。無外部資產、無動畫、無外部 URI。授權為 CC0 1.0。\n');
 console.log(path.join(outDir, 'mini-humanoid.glb'));

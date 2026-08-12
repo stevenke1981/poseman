@@ -212,6 +212,17 @@ test('control panel uses accessible native accordion sections without changing c
     'importGlbBtn',
     'assetImportStatus',
     'assetSummary',
+    'glbMappingPanel',
+    'glbSkeletonDiagnostic',
+    'glbSkeletonSelect',
+    'glbManualMapping',
+    'glbMappingRows',
+    'glbMappingPresetName',
+    'glbMappingPresetSelect',
+    'glbMappingPresetSaveBtn',
+    'glbMappingPresetApplyBtn',
+    'glbMappingPresetDeleteBtn',
+    'glbMappingCancelBtn',
   ];
   for (const id of requiredIds) {
     const occurrences = html.match(new RegExp(`\\bid="${id}"`, 'g')) || [];
@@ -228,6 +239,10 @@ test('GLB import form is .glb-only, acknowledged, and visibly reports status', (
   const uiSource = fs.readFileSync(path.join(here, '..', 'src', 'ui.js'), 'utf8');
   assert.doesNotMatch(uiSource, /assetSummary\.innerHTML/);
   assert.match(uiSource, /validateLicenseMetadata/);
+  assert.match(uiSource, /validateManualMapping/);
+  assert.match(uiSource, /disposeParsedGltf/);
+  assert.equal(htmlIds.get('glbMappingPanel')?.[0]?.attrs.get('aria-labelledby'), 'glbMappingHeading');
+  assert.equal(htmlIds.get('glbSkeletonDiagnostic')?.[0]?.attrs.get('role'), 'status');
 });
 
 test('HTML ids are globally unique and every centralized DOM reference resolves exactly once', () => {
@@ -274,4 +289,5 @@ test('initial panel opens only the three common sections and bulk prop restore s
     /for\s*\(const pd of rawProps\)\s+addProp\(pd\.type, pd, \{\s*select:\s*false,\s*notify:\s*false\s*\}\)/,
   );
   assert.match(persistence, /notifyPropsChange\(\{\s*bulk:\s*true\s*\}\)/);
+  assert.match(persistence, /mapping:\s*normalized\.assetRef\.mapping/);
 });

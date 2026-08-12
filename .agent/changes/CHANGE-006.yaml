@@ -1,0 +1,27 @@
+id: CHANGE-006
+title: GLB 骨架診斷與手動映射編輯器
+status: accepted_with_documented_limits
+classification: feature_and_safety_editor
+risk: medium
+impact:
+  - retains parsed GLB only while bounded diagnostic/manual mapping is open
+  - adds localStorage mapping presets without binary payloads
+  - preserves scene v5 assetRef.mapping, stable skeletonSelector, and ordered IndexedDB hydration
+scope:
+  - visible per-SkinnedMesh skeleton diagnostics with hit/missing/duplicate/unused joints
+  - strict same-skeleton unique manual mapping for all 17 PoseMan joints
+  - one-click complete auto import and manual confirmation path for incomplete rigs
+  - prototype-safe bounded named mapping presets
+  - opaque-name self-authored CC0 fixture and focused regression tests
+protected:
+  - CHANGE-005 GLB header/accessor/image/URI/license validation and scene generation cancellation
+  - GLB bytes remain in IndexedDB only; no source mutation or upload
+  - v1-v4 scene loading and scene v5 mapping round-trip
+verification:
+  - npm test: 47/47 PASS
+  - npm run build and npm run check: PASS
+  - npm audit --audit-level=high: 0 vulnerabilities
+  - root browser opaque fixture manual mapping, preset, pose reload, and cancellation: PASS
+  - independent final code review: APPROVE
+known_boundary:
+  - stable skeleton selectors are derived from rig hierarchy and associated mesh paths; materially restructuring the licensed GLB requires remapping

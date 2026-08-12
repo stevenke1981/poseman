@@ -470,22 +470,79 @@ function normalizeBoneName(name) {
   return safeString(name, 160).toLowerCase().replace(/mixamorig[:_\-.]?/g, '').replace(/[^a-z0-9]/g, '');
 }
 
+function stableObjectPath(root, object) {
+  const segments = [];
+  let current = object;
+  while (current && current !== root) {
+    const parent = current.parent;
+    if (!parent) break;
+    const index = parent.children.indexOf(current);
+    segments.push(`${index}:${safeString(current.name, 80)}`);
+    current = parent;
+  }
+  return segments.reverse().join('/');
+}
+
+function selectorHash(value) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function skeletonSelector(skeleton, meshDescriptors) {
+  const bones = Array.isArray(skeleton?.bones) ? skeleton.bones : [];
+  const boneIndex = new Map(bones.map((bone, index) => [bone, index]));
+  const boneData = bones.map((bone, index) => {
+    const parentIndex = boneIndex.has(bone.parent) ? boneIndex.get(bone.parent) : -1;
+    return `${index}:${safeString(bone.name, 160)}:${parentIndex}`;
+  }).join('|');
+  const meshes = meshDescriptors
+    .map((descriptor) => `${safeString(descriptor.path, 240)}:${safeString(descriptor.name, 120)}`)
+    .sort()
+    .join('|');
+  const canonical = `poseman-skeleton-v1|bones=${boneData}|meshes=${meshes}`;
+  return `poseman-skeleton-v1-${selectorHash(canonical)}`;
+}
+
 export function mapSkeletonBones(bones) {
+  const detail = inspectSkeletonBones(bones);
+  return {
+    mapping: detail.mapping,
+    missing: detail.missing,
+    complete: detail.complete,
+  };
+}
+
+function scoreBoneForJoint(joint, bone) {
+  const normalized = normalizeBoneName(bone?.name);
+  const aliases = ALIASES[joint] || [];
+  return aliases.reduce((max, alias, index) => {
+    const a = normalizeBoneName(alias);
+    if (normalized === a) return Math.max(max, 100 - index);
+    if (normalized.endsWith(a) || normalized.startsWith(a)) return Math.max(max, 60 - index);
+    return max;
+  }, 0);
+}
+
+function inspectSkeletonBones(bones) {
   const list = Array.isArray(bones) ? bones.filter((bone) => bone && typeof bone.name === 'string') : [];
   const used = new Set();
   const mapping = Object.create(null);
+  const candidates = Object.create(null);
   for (const joint of JOINT_NAMES) {
-    const aliases = ALIASES[joint] || [];
+    const scored = list
+      .map((bone, index) => ({ bone, index, score: scoreBoneForJoint(joint, bone) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score || a.index - b.index);
+    candidates[joint] = scored;
     let best = null;
-    for (const bone of list) {
+    for (const candidate of scored) {
+      const bone = candidate.bone;
       if (used.has(bone)) continue;
-      const normalized = normalizeBoneName(bone.name);
-      const score = aliases.reduce((max, alias, index) => {
-        const a = normalizeBoneName(alias);
-        if (normalized === a) return Math.max(max, 100 - index);
-        if (normalized.endsWith(a) || normalized.startsWith(a)) return Math.max(max, 60 - index);
-        return max;
-      }, 0);
+      const score = candidate.score;
       if (score > (best?.score || 0)) best = { bone, score };
     }
     if (best?.score > 0) {
@@ -494,7 +551,120 @@ export function mapSkeletonBones(bones) {
     }
   }
   const missing = JOINT_NAMES.filter((joint) => !Object.hasOwn(mapping, joint));
-  return { mapping, missing, complete: missing.length === 0 };
+  const selected = new Set(Object.values(mapping).map((name) => list.find((bone) => bone.name === name)).filter(Boolean));
+  const duplicate = JOINT_NAMES.filter((joint, index) => {
+    const name = mapping[joint];
+    return name && JOINT_NAMES.slice(0, index).some((other) => mapping[other] === name);
+  });
+  const unused = list.filter((bone) => !selected.has(bone)).map((bone) => bone.name);
+  return {
+    mapping,
+    missing,
+    duplicate,
+    unused,
+    candidates,
+    complete: missing.length === 0 && duplicate.length === 0,
+  };
+}
+
+export function validateManualMapping(rawMapping, skeletonBones) {
+  const source = rawMapping && typeof rawMapping === 'object' && !Array.isArray(rawMapping) ? rawMapping : null;
+  const bones = Array.isArray(skeletonBones) ? skeletonBones.filter((bone) => bone && typeof bone.name === 'string') : [];
+  const errors = [];
+  const mapping = Object.create(null);
+  const used = new Set();
+  if (!source) return { ok: false, errors: ['手動映射必須是物件。'], mapping };
+  for (const key of Object.keys(source)) {
+    if (DANGEROUS_KEYS.has(key)) errors.push('映射含有不安全的原型鍵。');
+  }
+  for (const joint of JOINT_NAMES) {
+    const value = Object.hasOwn(source, joint) ? source[joint] : '';
+    if (typeof value !== 'string' || !safeString(value, 160)) {
+      errors.push(`${joint} 尚未指定骨骼。`);
+      continue;
+    }
+    const name = safeString(value, 160);
+    const matches = bones.filter((bone) => bone.name === name);
+    if (matches.length === 0) {
+      errors.push(`${joint} 指定的骨骼不存在於同一 SkinnedMesh skeleton。`);
+      continue;
+    }
+    if (matches.length > 1 || used.has(matches[0])) {
+      errors.push(`${joint} 指定了重複或無法辨識的骨骼 identity。`);
+      continue;
+    }
+    used.add(matches[0]);
+    mapping[joint] = matches[0].name;
+  }
+  return { ok: errors.length === 0, errors, mapping };
+}
+
+function makeSkeletonDiagnostic(skeleton, skeletonIndex, meshDescriptors) {
+  const bones = Array.isArray(skeleton?.bones) ? skeleton.bones : [];
+  const detail = inspectSkeletonBones(bones);
+  const selectedByName = new Set(Object.values(detail.mapping));
+  const selectedByJoint = JOINT_NAMES.map((joint) => {
+    const name = detail.mapping[joint];
+    return bones.find((bone) => bone.name === name);
+  });
+  const identitySet = new Set(selectedByJoint.filter(Boolean));
+  const nameCounts = new Map();
+  for (const bone of bones) nameCounts.set(bone.name, (nameCounts.get(bone.name) || 0) + 1);
+  const duplicateBones = [...nameCounts.entries()].filter(([, count]) => count > 1).map(([name]) => name);
+  const duplicate = JOINT_NAMES.filter((joint, index) => {
+    const bone = selectedByJoint[index];
+    return bone && selectedByJoint.slice(0, index).includes(bone);
+  });
+  return {
+    skeletonIndex,
+    skeleton,
+    meshNames: meshDescriptors.map((descriptor) => descriptor.name),
+    selector: skeletonSelector(skeleton, meshDescriptors),
+    boneCount: bones.length,
+    boneObjects: bones.slice(),
+    boneNames: bones.map((bone) => bone.name),
+    candidates: Object.fromEntries(JOINT_NAMES.map((joint) => [joint, (detail.candidates[joint] || []).map((entry) => entry.bone.name)])),
+    mapping: { ...detail.mapping },
+    hit: JOINT_NAMES.filter((joint) => Object.hasOwn(detail.mapping, joint)),
+    missing: detail.missing.slice(),
+    duplicate,
+    duplicateBones,
+    unused: bones.filter((bone) => !identitySet.has(bone)).map((bone) => bone.name),
+    complete: detail.complete && duplicate.length === 0 && duplicateBones.length === 0,
+    selectedByName,
+  };
+}
+
+export function inspectImportedGltf(gltf) {
+  const sourceRoot = gltf?.scene;
+  if (!sourceRoot || typeof sourceRoot.traverse !== 'function') throw new Error('GLB 缺少可顯示的 scene。');
+  const skinnedMeshes = [];
+  sourceRoot.traverse((object) => {
+    if (object.isSkinnedMesh) skinnedMeshes.push(object);
+  });
+  if (!skinnedMeshes.length) throw new Error('GLB 沒有 SkinnedMesh。');
+  const skeletons = [];
+  const seen = new Set();
+  for (const mesh of skinnedMeshes) {
+    if (!mesh.skeleton || seen.has(mesh.skeleton)) continue;
+    seen.add(mesh.skeleton);
+    const index = skeletons.length;
+    const meshDescriptors = skinnedMeshes
+      .filter((candidate) => candidate.skeleton === mesh.skeleton)
+      .map((candidate) => ({ name: candidate.name || 'SkinnedMesh', path: stableObjectPath(sourceRoot, candidate) }));
+    skeletons.push(makeSkeletonDiagnostic(mesh.skeleton, index, meshDescriptors));
+  }
+  const selectedSkeletonIndex = Math.max(0, skeletons.findIndex((entry) => entry.complete));
+  const selected = skeletons[selectedSkeletonIndex] || null;
+  return {
+    gltf,
+    skeletons,
+    selectedSkeletonIndex,
+    selectedSkeletonSelector: selected?.selector || '',
+    selected,
+    complete: Boolean(selected?.complete),
+    mapping: selected ? { ...selected.mapping } : {},
+  };
 }
 
 function makeJointController(bone, restQuaternion) {
@@ -546,20 +716,81 @@ function disposeMaterial(material, seenMaterials, seenTextures) {
   material.dispose?.();
 }
 
-export function createImportedFigure(gltf, metadata = {}) {
+function cloneOwnedMaterial(material, ownedMaterials = null) {
+  if (!material?.clone) return material;
+  const cloned = material.clone();
+  ownedMaterials?.add(cloned);
+  for (const [key, value] of Object.entries(cloned)) {
+    if (value?.isTexture && value.clone) cloned[key] = value.clone();
+  }
+  return cloned;
+}
+
+function disposeOwnedResources(ownership, root) {
+  for (const geometry of ownership?.geometries || []) geometry.dispose?.();
+  const textures = new Set();
+  const materials = new Set();
+  for (const material of ownership?.materials || []) disposeMaterial(material, materials, textures);
+  root?.removeFromParent?.();
+}
+
+export function disposeParsedGltf(gltf) {
+  const root = gltf?.scene;
+  if (!root || typeof root.traverse !== 'function') return;
+  const geometries = new Set();
+  const materials = new Set();
+  const textures = new Set();
+  root.traverse((object) => {
+    if (object.isMesh) {
+      if (object.geometry) geometries.add(object.geometry);
+      const values = Array.isArray(object.material) ? object.material : [object.material];
+      values.forEach((material) => material && materials.add(material));
+    }
+  });
+  for (const geometry of geometries) geometry.dispose?.();
+  const seenMaterials = new Set();
+  for (const material of materials) disposeMaterial(material, seenMaterials, textures);
+  root.removeFromParent?.();
+}
+
+function createImportedFigureFromClonedRoot(gltf, metadata = {}, clonedModel, ownedRoot, ownership) {
   const sourceRoot = gltf?.scene;
   if (!sourceRoot || typeof sourceRoot.traverse !== 'function') throw new Error('GLB 缺少可顯示的 scene。');
-  const model = SkeletonUtils.clone(sourceRoot);
-  const root = new THREE.Group();
-  root.name = 'poseman-imported-figure';
-  root.add(model);
+  const model = clonedModel || SkeletonUtils.clone(sourceRoot);
+  const root = ownedRoot || new THREE.Group();
+  if (!ownedRoot) {
+    root.name = 'poseman-imported-figure';
+    root.add(model);
+  }
+  const owned = ownership || { geometries: new Set(), materials: new Set() };
+  const sourceSkinnedMeshes = [];
+  sourceRoot.traverse((object) => {
+    if (object.isSkinnedMesh) sourceSkinnedMeshes.push({
+      mesh: object,
+      path: stableObjectPath(sourceRoot, object),
+    });
+  });
+  const sourceSkeletonDescriptors = new Map();
+  for (const descriptor of sourceSkinnedMeshes) {
+    const list = sourceSkeletonDescriptors.get(descriptor.mesh.skeleton) || [];
+    list.push({ name: descriptor.mesh.name || 'SkinnedMesh', path: descriptor.path });
+    sourceSkeletonDescriptors.set(descriptor.mesh.skeleton, list);
+  }
+  const sourceSelectorByMeshPath = new Map();
+  for (const [skeleton, descriptors] of sourceSkeletonDescriptors) {
+    const selector = skeletonSelector(skeleton, descriptors);
+    for (const descriptor of descriptors) sourceSelectorByMeshPath.set(descriptor.path, selector);
+  }
   // SkeletonUtils preserves the rig while geometry/material ownership remains
   // explicit per imported figure; disposal can never touch another figure.
   model.traverse((object) => {
     if (!object.isMesh) return;
-    if (object.geometry?.clone) object.geometry = object.geometry.clone();
-    if (Array.isArray(object.material)) object.material = object.material.map((material) => material?.clone?.() || material);
-    else if (object.material?.clone) object.material = object.material.clone();
+    if (object.geometry?.clone) {
+      object.geometry = object.geometry.clone();
+      owned.geometries.add(object.geometry);
+    }
+    if (Array.isArray(object.material)) object.material = object.material.map((material) => cloneOwnedMaterial(material, owned.materials));
+    else if (object.material?.clone) object.material = cloneOwnedMaterial(object.material, owned.materials);
   });
   const skinnedMeshes = [];
   model.traverse((object) => {
@@ -573,18 +804,49 @@ export function createImportedFigure(gltf, metadata = {}) {
     if (!skeleton || seenSkeletons.has(skeleton)) continue;
     seenSkeletons.add(skeleton);
     const bones = Array.isArray(skeleton.bones) ? skeleton.bones : [];
-    skeletons.push({ bones, mapping: mapSkeletonBones(bones) });
+    const meshDescriptors = skinnedMeshes
+      .filter((candidate) => candidate.skeleton === skeleton)
+      .map((candidate) => ({ name: candidate.name || 'SkinnedMesh', path: stableObjectPath(model, candidate) }));
+    const sourceSelectors = [...new Set(meshDescriptors.map((descriptor) => sourceSelectorByMeshPath.get(descriptor.path)).filter(Boolean))];
+    const cloneSelector = skeletonSelector(skeleton, meshDescriptors);
+    skeletons.push({
+      skeleton,
+      bones,
+      mapping: mapSkeletonBones(bones),
+      selector: sourceSelectors[0] || cloneSelector,
+      sourceSelector: sourceSelectors[0] || '',
+      cloneSelector,
+    });
   }
-  const rig = skeletons.find((candidate) => candidate.mapping.complete);
+  let rig = null;
+  const hasMappingOverride = metadata.mapping && typeof metadata.mapping === 'object' && Object.keys(metadata.mapping).length > 0;
+  const requestedSelector = typeof metadata.skeletonSelector === 'string' ? safeString(metadata.skeletonSelector, 160) : '';
+  if (requestedSelector) {
+    rig = skeletons.find((candidate) => candidate.sourceSelector === requestedSelector || candidate.selector === requestedSelector) || null;
+    if (rig && hasMappingOverride && !validateManualMapping(metadata.mapping, rig.bones).ok) rig = null;
+  }
+  if (!rig && metadata.skeleton) {
+    rig = skeletons.find((candidate) => candidate.skeleton === metadata.skeleton) || null;
+  } else if (!rig && !requestedSelector && Number.isInteger(metadata.skeletonIndex) && metadata.skeletonIndex >= 0) {
+    rig = skeletons[metadata.skeletonIndex] || null;
+  }
+  if (hasMappingOverride && !rig) {
+    rig = skeletons.find((candidate) => validateManualMapping(metadata.mapping, candidate.bones).ok) || null;
+  }
+  if (!rig) rig = skeletons.find((candidate) => candidate.mapping.complete);
   if (!rig) {
     const missing = skeletons[0]?.mapping?.missing || JOINT_NAMES;
     throw new Error(`同一 SkinnedMesh 骨架缺少必要關節：${missing.join('、')}`);
   }
-  const { bones, mapping: result } = rig;
+  const manualResult = hasMappingOverride ? validateManualMapping(metadata.mapping, rig.bones) : null;
+  const useManualMapping = Boolean(manualResult?.ok);
+  const { bones } = rig;
+  const mappingResult = useManualMapping ? manualResult : rig.mapping;
+  const mapping = mappingResult.mapping;
   const joints = Object.create(null);
   const restRotations = Object.create(null);
   for (const joint of JOINT_NAMES) {
-    const bone = bones.find((item) => item.name === result.mapping[joint]);
+    const bone = bones.find((item) => item.name === mapping[joint]);
     restRotations[joint] = bone.quaternion.clone();
     joints[joint] = makeJointController(bone, restRotations[joint]);
   }
@@ -613,7 +875,7 @@ export function createImportedFigure(gltf, metadata = {}) {
   // raycastable spheres on each mapped bone provide deterministic joint picks
   // without changing the imported model's appearance.
   for (const joint of JOINT_NAMES) {
-    const bone = bones.find((item) => item.name === result.mapping[joint]);
+    const bone = bones.find((item) => item.name === mapping[joint]);
     const proxy = new THREE.Object3D();
     proxy.name = `poseman-pick-${joint}`;
     proxy.userData.joint = joint;
@@ -629,14 +891,8 @@ export function createImportedFigure(gltf, metadata = {}) {
     bone.add(proxy);
     pickMeshes.push(proxy);
   }
-  const ownedGeometry = new Set();
-  const ownedMaterials = new Set();
-  model.traverse((object) => {
-    if (!object.isMesh) return;
-    if (object.geometry) ownedGeometry.add(object.geometry);
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
-    materials.forEach((material) => material && ownedMaterials.add(material));
-  });
+  const ownedGeometry = owned.geometries;
+  const ownedMaterials = owned.materials;
   let disposed = false;
   const figure = {
     group: root,
@@ -649,9 +905,11 @@ export function createImportedFigure(gltf, metadata = {}) {
     license: metadata.license,
     assetRef: {
       assetId: ASSET_ID.test(metadata.assetId || '') ? metadata.assetId.toLowerCase() : '',
-      mapping: { ...result.mapping },
+      mapping: { ...mapping },
+      skeletonSelector: rig.selector,
     },
-    mapping: { ...result.mapping },
+    mapping: { ...mapping },
+    skeletonSelector: rig.selector,
     restRotations,
     setPose(pose) {
       if (!pose || typeof pose !== 'object' || Array.isArray(pose)) return;
@@ -672,7 +930,8 @@ export function createImportedFigure(gltf, metadata = {}) {
       disposed = true;
       for (const geometry of ownedGeometry) geometry.dispose?.();
       const textures = new Set();
-      for (const material of ownedMaterials) disposeMaterial(material, new Set(), textures);
+      const materials = new Set();
+      for (const material of ownedMaterials) disposeMaterial(material, materials, textures);
       root.removeFromParent();
     },
   };
@@ -680,7 +939,25 @@ export function createImportedFigure(gltf, metadata = {}) {
   return figure;
 }
 
-export async function importGlbArrayBuffer(arrayBuffer, metadata = {}, limits = GLB_LIMITS) {
+export function createImportedFigure(gltf, metadata = {}) {
+  const sourceRoot = gltf?.scene;
+  if (!sourceRoot || typeof sourceRoot.traverse !== 'function') throw new Error('GLB 缺少可顯示的 scene。');
+  const ownership = { geometries: new Set(), materials: new Set() };
+  let model = null;
+  let root = null;
+  try {
+    model = SkeletonUtils.clone(sourceRoot);
+    root = new THREE.Group();
+    root.name = 'poseman-imported-figure';
+    root.add(model);
+    return createImportedFigureFromClonedRoot(gltf, metadata, model, root, ownership);
+  } catch (error) {
+    disposeOwnedResources(ownership, root);
+    throw error;
+  }
+}
+
+export async function parseGlbArrayBuffer(arrayBuffer, limits = GLB_LIMITS) {
   const header = validateGlbHeader(arrayBuffer, limits);
   if (!header.ok) throw new Error(header.errors.join(' '));
   const json = validateGltfJson(header.json, limits);
@@ -691,7 +968,28 @@ export async function importGlbArrayBuffer(arrayBuffer, metadata = {}, limits = 
   const gltf = await new Promise((resolve, reject) => {
     loader.parse(header.bytes.buffer.slice(header.bytes.byteOffset, header.bytes.byteOffset + header.bytes.byteLength), '', resolve, reject);
   });
-  return createImportedFigure(gltf, metadata);
+  return gltf;
+}
+
+export async function inspectGlbArrayBuffer(arrayBuffer, limits = GLB_LIMITS) {
+  const gltf = await parseGlbArrayBuffer(arrayBuffer, limits);
+  try {
+    return inspectImportedGltf(gltf);
+  } catch (error) {
+    disposeParsedGltf(gltf);
+    throw error;
+  }
+}
+
+export async function importGlbArrayBuffer(arrayBuffer, metadata = {}, limits = GLB_LIMITS) {
+  const gltf = await parseGlbArrayBuffer(arrayBuffer, limits);
+  try {
+    return createImportedFigure(gltf, metadata);
+  } finally {
+    // createImportedFigure clones owned geometry/material/texture resources;
+    // the parser result is temporary and must not remain resident.
+    disposeParsedGltf(gltf);
+  }
 }
 
 export function isAssetId(value) {

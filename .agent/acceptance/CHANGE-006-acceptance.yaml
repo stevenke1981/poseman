@@ -1,0 +1,29 @@
+change: CHANGE-006
+date: 2026-08-12
+status: PASSED_WITH_LIMITATIONS
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: PASS
+evidence:
+  - npm test: 47/47 passed
+  - npm run build: Vite 8.2.1 passed with only the existing Three.js chunk-size advisory
+  - npm run check: passed
+  - npm audit --audit-level=high: 0 vulnerabilities
+  - root in-app browser: opaque CC0 fixture reported 17 bones, 0/17 automatic hits, all missing joints, and 17 accessible manual mapping selectors
+  - root in-app browser: duplicate bone identity was rejected without adding a figure
+  - root in-app browser: named mapping preset saved, applied, and remained available after reload
+  - root in-app browser: manual mapping created Opaque Stable Final as the sixth external figure
+  - root in-app browser: imported head Z rotation persisted at 26 degrees after a full reload from IndexedDB
+  - root in-app browser: clearing a pending diagnostic kept the figure count unchanged and re-enabled import
+  - root in-app browser: 390x700 layout retained all mapping rows without horizontal overflow
+  - root in-app browser: no console warnings or errors during mapping, import, pose, reload, and cancellation
+  - independent code review: APPROVE after stable multi-rig selector, stale request cancellation, fallback, and GPU cleanup regressions
+limitations:
+  - Manual mapping requires all 17 PoseMan joints to resolve uniquely within one actual SkinnedMesh skeleton
+  - Changing a GLB rig hierarchy or associated mesh paths can invalidate its saved skeleton selector and require remapping
+  - GLB bytes and mapping presets remain browser-local; moving a scene to another browser requires re-importing the licensed asset
+  - The Three.js production chunk remains above Vite's 500 kB advisory threshold

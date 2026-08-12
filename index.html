@@ -60,6 +60,31 @@
             </label>
             <button id="importGlbBtn" type="button">匯入 GLB 人體</button>
             <p id="assetImportStatus" class="asset-status" role="status" aria-live="polite"></p>
+            <section id="glbMappingPanel" class="glb-mapping-panel" hidden aria-labelledby="glbMappingHeading">
+              <h4 id="glbMappingHeading">GLB 骨架診斷與手動映射</h4>
+              <p id="glbSkeletonDiagnostic" class="muted-hint" role="status" aria-live="polite"></p>
+              <label for="glbSkeletonSelect">使用哪一個 SkinnedMesh skeleton</label>
+              <select id="glbSkeletonSelect"></select>
+              <label class="check-row" for="glbManualMapping">
+                <input id="glbManualMapping" type="checkbox" />
+                使用手動映射（自動完整時也可修正）
+              </label>
+              <div id="glbMappingRows" class="glb-mapping-rows"></div>
+              <div class="mapping-preset-row">
+                <label for="glbMappingPresetName">映射預設名稱</label>
+                <input id="glbMappingPresetName" maxlength="80" autocomplete="off" />
+                <button id="glbMappingPresetSaveBtn" type="button">保存預設</button>
+              </div>
+              <div class="mapping-preset-row">
+                <label for="glbMappingPresetSelect">套用既有預設</label>
+                <select id="glbMappingPresetSelect" aria-label="套用既有映射預設">
+                  <option value="">請選擇…</option>
+                </select>
+                <button id="glbMappingPresetApplyBtn" type="button">套用</button>
+                <button id="glbMappingPresetDeleteBtn" type="button">刪除</button>
+              </div>
+              <button id="glbMappingCancelBtn" type="button">清除診斷</button>
+            </section>
             <p id="assetSummary" class="asset-status" aria-live="polite">目前人物：程序化人偶</p>
           </div>
           </fieldset>

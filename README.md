@@ -45,6 +45,7 @@
 ### GLB 授權與骨架責任
 
 GLB 匯入是使用者主動提供的本機檔案；PoseMan 不替使用者判定第三方授權是否合法。使用者必須自行核對資產來源與授權條件並負責其用途。支援的常見骨架命名包含 Mixamo（`mixamorig:Hips`、`LeftArm`、`LeftForeArm` 等）、Blender（`upper_arm.L`、`forearm.L` 等）、VRM/通用 `hips`、`spine`、`chest`、`neck`、`head`、左右上臂／前臂／手、大腿／小腿／腳。缺少核心關節、SkinnedMesh 或使用外部 URI 的 GLB 會被拒絕，不會清空現場。匯入人物不播放動畫，姿勢控制是相對於原始 rest rotation 的 delta。每個 accessor、sparse payload 與圖片 encoded bytes 都受上限保護；圖片只接受可辨識的 PNG/JPEG/WebP header，未知格式（含 AVIF）會 fail closed。圖片 bufferView 僅接受 GLB BIN 或 `data:` buffer 的宣告來源，並限制所有圖片合計解碼像素（33,554,432）與估算解碼記憶體（128 MiB），避免多張各自合規的 image bomb。取消中的 async 匯入不刪除可能共用的 IndexedDB SHA-256 record。
+匯入後會先顯示實際 SkinnedMesh skeleton 的骨數、17 個 PoseMan 關節命中／缺失／重複／未使用診斷。自動映射完整時可直接建立人物；缺失或使用者勾選手動映射時，需在 17 行下拉選單中指定同一 skeleton 的唯一骨 identity，否則不會建立人物。每個 rig 另以不依賴 skeleton array index 的穩定 selector（骨階層與關聯 SkinnedMesh path fingerprint）識別；場景 v5 的 `assetRef.mapping` 與 `assetRef.skeletonSelector` 會在重整時優先套用到同一 rig，失效時安全回退可用的完整 auto rig。映射預設只以有限長度文字保存於 localStorage，絕不保存 GLB bytes。`fixtures/opaque_humanoid/opaque-humanoid.glb` 是本專案自行生成的 CC0 手動映射驗收資產。
 
 ## AI 設定
 
@@ -62,10 +63,10 @@ GLB 匯入是使用者主動提供的本機檔案；PoseMan 不替使用者判�
 npm install
 npm run dev      # http://localhost:5173
 npm test         # Node 內建外觀／場景 schema 回歸測試
-node scripts/generate_fixture.mjs # 產生本專案自有 CC0 mini-humanoid GLB fixture
+node scripts/generate_fixture.mjs # 產生本專案自有 CC0 mini/opaque humanoid GLB fixtures
 ```
 
-Node.js 需求：`^20.19.0 || >=22.12.0`（目前開發環境 Node 24.15）。圖片驗證會在 GLTFLoader 前拒絕未知格式，PNG/JPEG/WebP 單邊不得超過 8192、總像素不得超過 33,554,432，且會限制 encoded image bytes；壓縮圖片實際解碼後的記憶體仍由瀏覽器解碼器管理。
+Node.js 需求：`^20.19.0 || >=22.12.0`（目前開發環境 Node 24.15）。圖片驗證會在 GLTFLoader 前拒絕未知格式，PNG/JPEG/WebP 單邊不得超過 8192、單圖與合計像素不得超過 33,554,432、估算合計 RGBA 解碼記憶體不得超過 128 MiB，且會限制 encoded image bytes；壓縮圖片實際解碼後的記憶體仍由瀏覽器解碼器管理。
 
 ## 建置
 

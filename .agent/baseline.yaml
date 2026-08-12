@@ -1,4 +1,4 @@
-id: BASELINE-20260812-004
+id: BASELINE-20260812-005
 status: passed_with_limits
 accepted_features:
   - upgraded stylized male and female mannequin appearance
@@ -10,12 +10,15 @@ accepted_features:
   - automatic 17-joint Mixamo, Blender, and VRM bone alias mapping
   - imported-figure pose sliders, joint picking proxies, normalization, grounding, and disposal
   - browser-local SHA-256 IndexedDB GLB storage and scene v5 asset references
+  - actual-skeleton diagnostics with strict 17-joint manual mapping and named local presets
+  - stable multi-rig skeleton selectors persisted through scene v5 reloads
   - missing-asset warning that preserves the rest of the scene
   - Vite 8.2.1 development and production build pipeline
 critical_user_flows:
   - select and customize a procedural figure without leaking appearance to another figure
   - add, remove, position, pose, and reload figures and props
   - confirm asset rights, import a valid licensed GLB, pose its mapped skeleton, and reload it from IndexedDB
+  - diagnose an opaque-name rig, map all 17 joints, reject duplicate identities, save a preset, and reload the selected rig
   - reject malformed, oversized, external-URI, incomplete-rig, or unconfirmed GLB input
   - load scene v1-v4 with safe defaults and scene v5 with external-asset references
   - keep other figures usable and show a warning when an external asset is unavailable
@@ -25,7 +28,7 @@ protected_behavior:
   - prototype-like keys and unsafe URLs are rejected safely
   - binary GLB data never enters scene JSON or localStorage
 public_interfaces:
-  - scene JSON version 5 with optional figures[].assetRef and figures[].license
+  - scene JSON version 5 with optional figures[].assetRef, stable skeletonSelector, mapping, and figures[].license
   - IndexedDB poseman-assets-v1/glb records addressed by SHA-256 assetId
 data_compatibility:
   - scene versions 1 through 4 remain readable
@@ -36,8 +39,8 @@ environment:
   - Node 24.15.0 built-in test runner
   - Vite 8.2.1 with Rolldown
 known_limitations:
-  - imported GLB must be self-contained, no larger than 25 MiB, and expose all 17 required joints through supported aliases
-  - imported animation playback and manual remapping are not yet available
+  - imported GLB must be self-contained, no larger than 25 MiB, and expose all 17 required joints through aliases or a complete manual mapping
+  - imported animation playback is not yet available
   - scene JSON references browser-local IndexedDB assets and is not a self-contained asset bundle
   - the bundled CC0 acceptance fixture is minimal rather than a scanned production human
   - Three.js remains above the 500 kB chunk-size advisory
@@ -47,3 +50,4 @@ evidence:
   - .agent/acceptance/CHANGE-003-acceptance.yaml
   - .agent/acceptance/CHANGE-004-acceptance.yaml
   - .agent/acceptance/CHANGE-005-acceptance.yaml
+  - .agent/acceptance/CHANGE-006-acceptance.yaml

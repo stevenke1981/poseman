@@ -55,6 +55,9 @@ export function sanitizePose(pose) {
 
 export function applyScene(data) {
   const generation = ++applyGeneration;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('poseman-scene-generation', { detail: generation }));
+  }
   transform.detach();
   for (const f of figures) {
     // Geometry remains in the shared cache; dispose only this figure's owned materials.
@@ -139,11 +142,26 @@ async function hydrateImportedFigure(normalized, generation, figureIndex, placeh
       return null;
     }
     if (generation !== applyGeneration) return null;
-    const figure = await importGlbArrayBuffer(record.data, {
+    const importMetadata = {
       assetId: normalized.assetRef.assetId,
       assetName: normalized.license?.assetName || record.metadata?.assetName,
       license: normalized.license || record.metadata,
-    });
+      mapping: normalized.assetRef.mapping,
+      skeletonSelector: normalized.assetRef.skeletonSelector,
+    };
+    let figure;
+    try {
+      figure = await importGlbArrayBuffer(record.data, importMetadata);
+    } catch (mappingError) {
+      // A stale mapping/selector must not leave a permanent procedural
+      // placeholder when the asset still has a complete alias skeleton.
+      if (generation !== applyGeneration || (!normalized.assetRef.mapping && !normalized.assetRef.skeletonSelector)) throw mappingError;
+      figure = await importGlbArrayBuffer(record.data, {
+        assetId: normalized.assetRef.assetId,
+        assetName: importMetadata.assetName,
+        license: importMetadata.license,
+      });
+    }
     if (generation !== applyGeneration) {
       figure.dispose?.();
       return null;

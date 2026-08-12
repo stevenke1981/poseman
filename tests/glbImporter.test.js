@@ -1,15 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   GLB_LIMITS,
   createImportedFigure,
+  disposeParsedGltf,
+  inspectGlbArrayBuffer,
+  inspectImportedGltf,
   mapSkeletonBones,
+  validateManualMapping,
   validateGlbHeader,
   validateGltfJson,
   validateImagePayloads,
   validateLicenseMetadata,
 } from '../src/glbImporter.js';
 import * as THREE from 'three';
+import { JOINT_NAMES } from '../src/mannequin.js';
+import {
+  loadMappingPresets,
+  saveMappingPreset,
+  deleteMappingPreset,
+} from '../src/mappingPresets.js';
 import {
   sanitizeAssetRef,
   sanitizeFigureRecord,
@@ -17,6 +29,7 @@ import {
   SCENE_VERSION,
 } from '../src/sceneSchema.js';
 import { getAsset, putAsset, clearMemoryAssetsForTests } from '../src/assetStore.js';
+import { createGlbImportSession } from '../src/glbImportSession.js';
 
 function glbWithJson(json, declaredLength = null) {
   const jsonBytes = new TextEncoder().encode(JSON.stringify(json));
@@ -32,6 +45,21 @@ function glbWithJson(json, declaredLength = null) {
   bytes.set(padded, 20);
   return bytes.buffer;
 }
+
+test('GLB import request session invalidates stale parse/finalize results deterministically', () => {
+  const session = createGlbImportSession();
+  const first = session.begin();
+  assert.equal(session.isCurrent(first), true);
+  const second = session.begin();
+  assert.equal(session.isCurrent(first), false);
+  assert.equal(session.isCurrent(second), true);
+  session.invalidate();
+  assert.equal(session.isCurrent(second), false);
+  assert.equal(session.complete(second), false);
+  const third = session.begin();
+  assert.equal(session.complete(third), true);
+  assert.equal(session.isCurrent(third), false);
+});
 
 function pngHeaderDataUri(width, height) {
   const bytes = new Uint8Array([
@@ -152,6 +180,233 @@ test('Mixamo aliases map to all 17 PoseMan joints and reject incomplete rigs', (
   assert.equal(mapSkeletonBones(names.slice(0, -1).map((name) => ({ name }))).complete, false);
 });
 
+test('inspect reports complete, missing, duplicate, and unused bones for one actual skeleton', () => {
+  const complete = fixtureFigure();
+  const diagnosis = inspectImportedGltf({ scene: complete.scene });
+  assert.equal(diagnosis.skeletons.length, 1);
+  assert.equal(diagnosis.complete, true);
+  assert.equal(diagnosis.selected.boneCount, 17);
+  assert.equal(diagnosis.selected.hit.length, 17);
+  assert.deepEqual(diagnosis.selected.missing, []);
+  assert.deepEqual(diagnosis.selected.duplicate, []);
+  assert.equal(diagnosis.selected.unused.length, 0);
+  complete.scene.removeFromParent();
+  const duplicate = fixtureFigure();
+  duplicate.bones[16].name = duplicate.bones[15].name;
+  const duplicateDiagnosis = inspectImportedGltf({ scene: duplicate.scene });
+  assert.deepEqual(duplicateDiagnosis.selected.duplicateBones, ['kneeR']);
+});
+
+test('opaque skeleton diagnosis enables strict same-skeleton manual mapping', () => {
+  const opaque = fixtureFigure({ opaque: true });
+  const diagnosis = inspectImportedGltf({ scene: opaque.scene });
+  assert.equal(diagnosis.complete, false);
+  assert.equal(diagnosis.selected.missing.length, 17);
+  assert.equal(diagnosis.selected.unused.length, 17);
+  const mapping = Object.fromEntries(JOINT_NAMES.map((joint, index) => [joint, opaque.names[index]]));
+  const valid = validateManualMapping(mapping, diagnosis.selected.boneObjects);
+  assert.equal(valid.ok, true);
+  const figure = createImportedFigure({ scene: opaque.scene }, { mapping: valid.mapping });
+  try {
+    assert.deepEqual(Object.keys(figure.mapping).sort(), [...JOINT_NAMES].sort());
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('committed opaque CC0 fixture parses through the bounded GLB inspection path', async () => {
+  const bytes = fs.readFileSync(path.join(process.cwd(), 'fixtures', 'opaque_humanoid', 'opaque-humanoid.glb'));
+  const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const inspection = await inspectGlbArrayBuffer(arrayBuffer);
+  try {
+    assert.equal(inspection.selected.boneCount, 17);
+    assert.equal(inspection.complete, false);
+    assert.equal(inspection.selected.missing.length, 17);
+  } finally {
+    disposeParsedGltf(inspection.gltf);
+  }
+});
+
+test('parsed GLTF inspection cancellation releases source geometry/material ownership', () => {
+  const source = fixtureFigure();
+  let geometryDisposals = 0;
+  let materialDisposals = 0;
+  source.mesh.geometry.addEventListener('dispose', () => geometryDisposals += 1);
+  source.mesh.material.addEventListener('dispose', () => materialDisposals += 1);
+  disposeParsedGltf({ scene: source.scene });
+  assert.equal(geometryDisposals, 1);
+  assert.equal(materialDisposals, 1);
+});
+
+test('create imported figure owns cloned resources while parser disposal leaves clone usable', () => {
+  const source = fixtureFigure();
+  const sourceGeometry = source.mesh.geometry;
+  const sourceMaterial = source.mesh.material;
+  const figure = createImportedFigure({ scene: source.scene }, {});
+  let cloneMesh = null;
+  figure.group.traverse((object) => { if (object.isSkinnedMesh) cloneMesh = object; });
+  assert.ok(cloneMesh);
+  disposeParsedGltf({ scene: source.scene });
+  assert.notEqual(cloneMesh.geometry, sourceGeometry);
+  assert.notEqual(cloneMesh.material, sourceMaterial);
+  assert.equal(cloneMesh.geometry.attributes.position.count > 0, true);
+  figure.dispose();
+});
+
+test('manual mapping rejects cross-skeleton, duplicate, and prototype selections', () => {
+  const first = fixtureFigure();
+  const second = fixtureFigure({ offset: 3, opaque: true });
+  const bones = first.bones;
+  const mapping = Object.fromEntries(JOINT_NAMES.map((joint, index) => [joint, bones[index].name]));
+  mapping.head = second.bones[4].name;
+  assert.equal(validateManualMapping(mapping, bones).ok, false, 'a bone from another skeleton is not accepted');
+  mapping.head = bones[4].name;
+  mapping.head = mapping.hips;
+  assert.equal(validateManualMapping(mapping, bones).ok, false);
+  assert.equal(validateManualMapping({ ...mapping, __proto__: 'hips' }, bones).ok, false);
+});
+
+test('manual mapping preserves the selected skeleton index when multiple rigs share names', () => {
+  const first = fixtureFigure();
+  const second = fixtureFigure({ offset: 3 });
+  second.bones[0].rotation.x = 0.37;
+  const scene = new THREE.Group();
+  scene.add(first.scene, second.scene);
+  const mapping = Object.fromEntries(JOINT_NAMES.map((joint) => [joint, joint]));
+  const figure = createImportedFigure({ scene }, { mapping, skeletonIndex: 1 });
+  try {
+    const restEuler = new THREE.Euler().setFromQuaternion(figure.restRotations.hips);
+    assert.ok(Math.abs(restEuler.x - 0.37) < 1e-6, `actual rest x=${restEuler.x}`);
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('stable skeleton selector survives clone and shared-skeleton multi-mesh dedupe', () => {
+  const first = fixtureFigure();
+  const second = fixtureFigure({ offset: 3 });
+  const shared = new THREE.SkinnedMesh(first.mesh.geometry.clone(), new THREE.MeshBasicMaterial());
+  shared.name = 'SharedMesh';
+  shared.bind(first.mesh.skeleton);
+  first.scene.add(shared);
+  const source = new THREE.Group();
+  source.add(first.scene, second.scene);
+  const inspection = inspectImportedGltf({ scene: source });
+  assert.equal(inspection.skeletons.length, 2);
+  assert.ok(inspection.skeletons[0].meshNames.includes('SharedMesh'));
+  const selected = inspection.skeletons[1];
+  const mapping = Object.fromEntries(JOINT_NAMES.map((joint) => [joint, joint]));
+  const figure = createImportedFigure({ scene: source }, { mapping, skeletonSelector: selected.selector });
+  try {
+    assert.equal(figure.skeletonSelector, selected.selector);
+    assert.equal(figure.assetRef.skeletonSelector, selected.selector);
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('source selector keeps the rear shared-skeleton rig after clone splits meshes', () => {
+  const front = fixtureFigure();
+  front.bones[0].rotation.x = 0.11;
+  const rear = fixtureFigure({ offset: 3 });
+  rear.bones[0].rotation.x = 0.42;
+  const rearShared = new THREE.SkinnedMesh(rear.mesh.geometry.clone(), new THREE.MeshBasicMaterial());
+  rearShared.name = 'RearSharedMesh';
+  rearShared.bind(rear.mesh.skeleton);
+  rear.scene.add(rearShared);
+  const source = new THREE.Group();
+  source.add(front.scene, rear.scene);
+  const inspection = inspectImportedGltf({ scene: source });
+  const rearEntry = inspection.skeletons.find((entry) => entry.meshNames.includes('RearSharedMesh'));
+  assert.ok(rearEntry);
+  const mapping = Object.fromEntries(JOINT_NAMES.map((joint) => [joint, joint]));
+  const figure = createImportedFigure({ scene: source }, { mapping, skeletonSelector: rearEntry.selector });
+  try {
+    const restEuler = new THREE.Euler().setFromQuaternion(figure.restRotations.hips);
+    assert.ok(Math.abs(restEuler.x - 0.42) < 1e-6, `actual rest x=${restEuler.x}`);
+    assert.equal(figure.skeletonSelector, rearEntry.selector);
+    figure.assetRef.assetId = 'a'.repeat(64);
+    const persisted = serializeFigureRecord(figure, {});
+    const hydrated = createImportedFigure({ scene: source }, {
+      mapping: persisted.assetRef.mapping,
+      skeletonSelector: persisted.assetRef.skeletonSelector,
+    });
+    try {
+      const hydratedRest = new THREE.Euler().setFromQuaternion(hydrated.restRotations.hips);
+      assert.ok(Math.abs(hydratedRest.x - 0.42) < 1e-6, `hydrated rest x=${hydratedRest.x}`);
+    } finally {
+      hydrated.dispose();
+    }
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('saved mapping override wins over alias auto mapping for hydrate-compatible create', () => {
+  const source = fixtureFigure();
+  const mapping = Object.fromEntries(JOINT_NAMES.map((joint) => [joint, joint]));
+  [mapping.spine, mapping.head] = [mapping.head, mapping.spine];
+  const figure = createImportedFigure({ scene: source.scene }, { mapping });
+  try {
+    assert.equal(figure.mapping.spine, 'head');
+    assert.equal(figure.mapping.head, 'spine');
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('invalid persisted selector or mapping safely falls back to a complete auto rig', () => {
+  const source = fixtureFigure();
+  const figure = createImportedFigure({ scene: source.scene }, {
+    skeletonSelector: 'poseman-skeleton-v1-stale',
+    mapping: { hips: 'missing-bone' },
+  });
+  try {
+    assert.equal(figure.mapping.hips, 'hips');
+    assert.equal(figure.skeletonSelector.startsWith('poseman-skeleton-v1-'), true);
+  } finally {
+    figure.dispose();
+  }
+});
+
+test('failed cloned figure construction disposes owned clone without disposing parser source', () => {
+  const source = fixtureFigure();
+  source.bones.splice(0, 1);
+  source.mesh.bind(new THREE.Skeleton(source.bones));
+  let sourceGeometryDisposals = 0;
+  source.mesh.geometry.addEventListener('dispose', () => sourceGeometryDisposals += 1);
+  assert.throws(() => createImportedFigure({ scene: source.scene }), /骨架缺少必要關節/);
+  assert.equal(sourceGeometryDisposals, 0);
+});
+
+test('mapping presets are bounded, prototype-safe, and localStorage-only', () => {
+  const previous = globalThis.localStorage;
+  const values = new Map();
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key) => values.get(key) || null,
+      setItem: (key, value) => values.set(key, String(value)),
+      removeItem: (key) => values.delete(key),
+    },
+  });
+  try {
+    const mapping = Object.fromEntries(JOINT_NAMES.map((joint) => [joint, `bone-${joint}`]));
+    assert.equal(saveMappingPreset('Opaque rig', mapping).ok, true);
+    assert.equal(loadMappingPresets().length, 1);
+    assert.equal(loadMappingPresets()[0].mapping.__proto__, undefined);
+    assert.equal(saveMappingPreset('__proto__', mapping).ok, true, 'names are strings, not object keys');
+    assert.equal(deleteMappingPreset('Opaque rig').ok, true);
+    assert.equal(loadMappingPresets().some((preset) => preset.name === 'Opaque rig'), false);
+    assert.equal(saveMappingPreset('one', mapping, { maxPresets: 1, maxNameLength: 4, maxBoneNameLength: 8 }).ok, true);
+    assert.equal(saveMappingPreset('two', mapping, { maxPresets: 1, maxNameLength: 4, maxBoneNameLength: 8 }).ok, true);
+    assert.equal(loadMappingPresets({ maxPresets: 1, maxNameLength: 4, maxBoneNameLength: 8 }).length, 1);
+  } finally {
+    if (previous === undefined) delete globalThis.localStorage;
+    else Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: previous });
+  }
+});
+
 test('multi-rig imports select one complete SkinnedMesh skeleton, never mix bones across rigs', () => {
   const incomplete = fixtureFigure();
   incomplete.bones.pop();
@@ -170,9 +425,10 @@ test('multi-rig imports select one complete SkinnedMesh skeleton, never mix bone
   }
 });
 
-function fixtureFigure() {
+function fixtureFigure({ opaque = false, offset = 0 } = {}) {
   const root = new THREE.Group();
-  const names = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'elbowL', 'wristL', 'shoulderR', 'elbowR', 'wristR', 'hipL', 'kneeL', 'ankleL', 'hipR', 'kneeR', 'ankleR'];
+  const aliases = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulderL', 'elbowL', 'wristL', 'shoulderR', 'elbowR', 'wristR', 'hipL', 'kneeL', 'ankleL', 'hipR', 'kneeR', 'ankleR'];
+  const names = opaque ? aliases.map((_, index) => `rigbone_${String(index + 1).padStart(2, '0')}`) : aliases;
   const bones = [];
   let parent = root;
   for (const name of names) {
@@ -193,9 +449,9 @@ function fixtureFigure() {
   const skeleton = new THREE.Skeleton(bones);
   mesh.bind(skeleton);
   root.add(mesh);
-  root.position.set(5, -3, 2);
+  root.position.set(5 + offset, -3, 2);
   root.scale.setScalar(2);
-  return { scene: root, bones, mesh };
+  return { scene: root, bones, mesh, names };
 }
 
 test('imported joints are rest-relative, normalize height/ground, and dispose owned resources once', () => {
@@ -247,17 +503,20 @@ test('v5 asset refs are safe, portable, and legacy scene records keep defaults',
     appearance: { skinTone: 'constructor' },
     x: 1,
     pose: { chest: [1, 2, 3] },
-    assetRef: { assetId: 'B'.repeat(64), mapping: { hips: 'Hips', __proto__: 'bad', chest: 'Chest' } },
+    assetRef: { assetId: 'B'.repeat(64), skeletonSelector: 'poseman-skeleton-v1-abc123', mapping: { hips: 'Hips', __proto__: 'bad', chest: 'Chest' } },
     license: { licenseType: 'cc-by-4.0', assetName: 'A', author: 'B', source: 'https://example.test/a', confirmed: true },
   };
   const safe = sanitizeFigureRecord(source, (pose) => pose);
   assert.equal(safe.assetRef.assetId, 'b'.repeat(64));
+  assert.equal(safe.assetRef.mapping.chest, 'Chest');
+  assert.equal(safe.assetRef.skeletonSelector, 'poseman-skeleton-v1-abc123');
   assert.equal(Object.hasOwn(safe.assetRef.mapping, '__proto__'), false);
   assert.equal(safe.license.source, 'https://example.test/a');
   assert.equal(sanitizeAssetRef({ assetId: 'constructor' }), null);
   const fake = { female: false, appearance: {}, group: { position: { x: 0, y: 0, z: 0 } }, assetRef: safe.assetRef, license: safe.license };
   const record = serializeFigureRecord(fake, { hips: [0, 0, 0] });
   assert.equal(record.assetRef.assetId, 'b'.repeat(64));
+  assert.equal(record.assetRef.skeletonSelector, 'poseman-skeleton-v1-abc123');
 });
 
 test('asset store addresses bytes by SHA-256 and reports missing assets explicitly', async () => {

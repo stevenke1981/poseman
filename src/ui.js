@@ -36,8 +36,23 @@ import { applyScene, getSceneGeneration, scheduleSave, serializeScene, sanitizeP
 import { withHistory, beginGesture, endGesture, undo, redo } from './history.js';
 import { applyActions, sceneSnapshot } from './aiActions.js';
 import { captureView, captureSheet } from './exporter.js';
-import { importGlbArrayBuffer, validateLicenseMetadata, GLB_LIMITS, LICENSE_TYPES } from './glbImporter.js';
+import {
+  createImportedFigure,
+  disposeParsedGltf,
+  inspectGlbArrayBuffer,
+  validateLicenseMetadata,
+  validateManualMapping,
+  GLB_LIMITS,
+  LICENSE_TYPES,
+} from './glbImporter.js';
 import { putAsset } from './assetStore.js';
+import { createGlbImportSession } from './glbImportSession.js';
+import {
+  loadMappingPresets,
+  saveMappingPreset,
+  deleteMappingPreset,
+  getMappingPreset,
+} from './mappingPresets.js';
 import {
   buildSystemPrompt,
   requestAI,
@@ -119,6 +134,17 @@ import {
   importGlbBtn,
   assetImportStatus,
   assetSummary,
+  glbMappingPanel,
+  glbSkeletonDiagnostic,
+  glbSkeletonSelect,
+  glbManualMapping,
+  glbMappingRows,
+  glbMappingPresetName,
+  glbMappingPresetSelect,
+  glbMappingPresetSaveBtn,
+  glbMappingPresetApplyBtn,
+  glbMappingPresetDeleteBtn,
+  glbMappingCancelBtn,
   currentPropSelect,
   addPropBtn,
   propRotY,
@@ -378,7 +404,196 @@ function syncImportedFigureControls(figure = state.activeFigure) {
   }
 }
 
+let pendingGlbInspection = null;
+const glbImportSession = createGlbImportSession();
+
+function isGlbRequestCurrent(pending) {
+  return Boolean(pending)
+    && pendingGlbInspection === pending
+    && glbImportSession.isCurrent(pending.requestToken)
+    && pending.generation === getSceneGeneration();
+}
+
+function selectedGlbDiagnostic() {
+  if (!pendingGlbInspection) return null;
+  const selector = glbSkeletonSelect.value;
+  return pendingGlbInspection.inspection.skeletons.find((entry) => entry.selector === selector)
+    || pendingGlbInspection.inspection.selected
+    || pendingGlbInspection.inspection.skeletons[0]
+    || null;
+}
+
+function captureGlbRowMapping() {
+  const mapping = Object.create(null);
+  glbMappingRows.querySelectorAll('select[data-joint]').forEach((select) => {
+    mapping[select.dataset.joint] = select.value;
+  });
+  return mapping;
+}
+
+function populateMappingPresets() {
+  const presets = loadMappingPresets();
+  const keep = glbMappingPresetSelect.value;
+  while (glbMappingPresetSelect.firstChild) glbMappingPresetSelect.removeChild(glbMappingPresetSelect.firstChild);
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = '請選擇…';
+  glbMappingPresetSelect.appendChild(blank);
+  for (const preset of presets) {
+    const option = document.createElement('option');
+    option.value = preset.name;
+    option.textContent = preset.name;
+    glbMappingPresetSelect.appendChild(option);
+  }
+  glbMappingPresetSelect.value = presets.some((preset) => preset.name === keep) ? keep : '';
+}
+
+function renderGlbMappingEditor() {
+  const entry = selectedGlbDiagnostic();
+  if (!entry) return;
+  if (!pendingGlbInspection.mappings[entry.selector]) {
+    pendingGlbInspection.mappings[entry.selector] = { ...entry.mapping };
+  }
+  const mapping = pendingGlbInspection.mappings[entry.selector];
+  const missing = entry.missing.length ? entry.missing.join('、') : '無';
+  const duplicateValues = [...entry.duplicate, ...(entry.duplicateBones || [])];
+  const duplicate = duplicateValues.length ? duplicateValues.join('、') : '無';
+  const unused = entry.unused.length ? entry.unused.slice(0, 8).join('、') + (entry.unused.length > 8 ? '…' : '') : '無';
+  glbSkeletonDiagnostic.textContent = `SkinnedMesh：${entry.meshNames.join('、') || '未命名'}；骨數 ${entry.boneCount}；自動命中 ${entry.hit.length}/17；缺失：${missing}；重複：${duplicate}；未使用：${unused}。`;
+  while (glbMappingRows.firstChild) glbMappingRows.removeChild(glbMappingRows.firstChild);
+  for (const joint of JOINT_NAMES) {
+    const row = document.createElement('div');
+    row.className = 'glb-mapping-row';
+    const label = document.createElement('label');
+    label.htmlFor = `glb-map-${joint}`;
+    label.textContent = JOINT_LABELS[joint] || joint;
+    const select = document.createElement('select');
+    select.id = `glb-map-${joint}`;
+    select.dataset.joint = joint;
+    select.required = true;
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = '請選擇骨骼…';
+    select.appendChild(blank);
+    entry.boneNames.forEach((name, index) => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = `${name}（骨 ${index + 1}）`;
+      select.appendChild(option);
+    });
+    select.value = mapping[joint] || '';
+    select.addEventListener('change', () => {
+      pendingGlbInspection.mappings[entry.selector] = captureGlbRowMapping();
+    });
+    row.append(label, select);
+    glbMappingRows.appendChild(row);
+  }
+  populateMappingPresets();
+}
+
+function showGlbInspection(inspection, data, license, generation, requestToken) {
+  pendingGlbInspection = {
+    inspection,
+    data,
+    license,
+    generation,
+    requestToken,
+    mappings: Object.fromEntries(inspection.skeletons.map((entry) => [entry.selector, { ...entry.mapping }])),
+  };
+  while (glbSkeletonSelect.firstChild) glbSkeletonSelect.removeChild(glbSkeletonSelect.firstChild);
+  inspection.skeletons.forEach((entry) => {
+    const option = document.createElement('option');
+    option.value = entry.selector;
+    option.textContent = `Skeleton ${entry.skeletonIndex + 1} ・ ${entry.meshNames.join('、') || 'SkinnedMesh'} ・ ${entry.boneCount} 骨`;
+    glbSkeletonSelect.appendChild(option);
+  });
+  glbSkeletonSelect.value = inspection.selectedSkeletonSelector || inspection.skeletons[inspection.selectedSkeletonIndex]?.selector || '';
+  glbSkeletonSelect.dataset.previousSelector = glbSkeletonSelect.value;
+  glbMappingPanel.hidden = false;
+  glbManualMapping.checked = !inspection.complete;
+  renderGlbMappingEditor();
+}
+
+function discardGlbInspection(expected = null) {
+  if (expected && pendingGlbInspection !== expected) return;
+  glbImportSession.invalidate();
+  if (pendingGlbInspection?.inspection?.gltf) disposeParsedGltf(pendingGlbInspection.inspection.gltf);
+  pendingGlbInspection = null;
+  glbMappingPanel.hidden = true;
+  while (glbSkeletonSelect.firstChild) glbSkeletonSelect.removeChild(glbSkeletonSelect.firstChild);
+  while (glbMappingRows.firstChild) glbMappingRows.removeChild(glbMappingRows.firstChild);
+  importGlbBtn.textContent = '匯入 GLB 人體';
+  importGlbBtn.disabled = false;
+}
+
+async function finalizeGlbInspection() {
+  const pending = pendingGlbInspection;
+  if (!pending || pending.finalizing || !isGlbRequestCurrent(pending)) return false;
+  const entry = selectedGlbDiagnostic();
+  if (!entry) {
+    setAssetStatus('找不到可用的 SkinnedMesh skeleton。', 'error');
+    return false;
+  }
+  pending.mappings[entry.selector] = captureGlbRowMapping();
+  const rawMapping = glbManualMapping.checked ? pending.mappings[entry.selector] : entry.mapping;
+  const validation = validateManualMapping(rawMapping, entry.boneObjects);
+  if (!validation.ok) {
+    setAssetStatus(validation.errors.join(' '), 'error');
+    glbManualMapping.checked = true;
+    renderGlbMappingEditor();
+    return false;
+  }
+  if (!isGlbRequestCurrent(pending)) {
+    return false;
+  }
+  pending.finalizing = true;
+  let figure = null;
+  let attached = false;
+  try {
+    figure = createImportedFigure(pending.inspection.gltf, {
+      assetName: pending.license.metadata.assetName,
+      license: pending.license.metadata,
+      mapping: validation.mapping,
+      skeletonSelector: entry.selector,
+    });
+    disposeParsedGltf(pending.inspection.gltf);
+    pending.inspection.gltf = null;
+    const assetId = await putAsset(pending.data, pending.license.metadata);
+    if (!isGlbRequestCurrent(pending)) {
+      figure.dispose?.();
+      figure = null;
+      return false;
+    }
+    withHistory(() => {
+      addImportedFigure(figure, {
+        assetId,
+        assetName: pending.license.metadata.assetName,
+        license: pending.license.metadata,
+      });
+    });
+    attached = true;
+    discardGlbInspection(pending);
+    scheduleSave();
+    glbFileInput.value = '';
+    setAssetStatus(`匯入成功：${pending.license.metadata.assetName}（${assetId.slice(0, 12)}…）`, 'success');
+    importGlbBtn.disabled = false;
+    return true;
+  } catch (error) {
+    if (!attached) figure?.dispose?.();
+    if (isGlbRequestCurrent(pending)) {
+      discardGlbInspection(pending);
+      setAssetStatus(`匯入失敗：${error?.message || 'GLB 格式不正確。'}`, 'error');
+      importGlbBtn.disabled = false;
+    }
+    return false;
+  }
+}
+
 async function importSelectedGlb() {
+  if (pendingGlbInspection) {
+    await finalizeGlbInspection();
+    return;
+  }
   const file = glbFileInput.files?.[0];
   if (!file) {
     setAssetStatus('請先選擇 .glb 檔案。', 'error');
@@ -407,48 +622,99 @@ async function importSelectedGlb() {
   importGlbBtn.disabled = true;
   setAssetStatus('正在驗證 GLB 與骨架…');
   const generation = getSceneGeneration();
-  const isCurrent = () => generation === getSceneGeneration();
-  let importedFigure = null;
-  let attached = false;
+  const requestToken = glbImportSession.begin();
   try {
     const data = await file.arrayBuffer();
-    if (!isCurrent()) {
-      setAssetStatus('場景已變更，已取消過期 GLB 匯入。', 'error');
+    if (generation !== getSceneGeneration() || !glbImportSession.isCurrent(requestToken)) {
       return;
     }
-    importedFigure = await importGlbArrayBuffer(data, license.metadata);
-    if (!isCurrent()) {
-      importedFigure.dispose?.();
-      importedFigure = null;
-      setAssetStatus('場景已變更，已取消過期 GLB 匯入。', 'error');
+    const inspection = await inspectGlbArrayBuffer(data);
+    if (generation !== getSceneGeneration() || !glbImportSession.isCurrent(requestToken)) {
+      disposeParsedGltf(inspection.gltf);
       return;
     }
-    const assetId = await putAsset(data, license.metadata);
-    if (!isCurrent()) {
-      // Content-addressed records may already be shared by another figure or
-      // scene. Cancellation never deletes IndexedDB data; an eventual GC can
-      // reclaim unreferenced assets safely.
-      importedFigure.dispose?.();
-      importedFigure = null;
-      setAssetStatus('場景已變更，已取消過期 GLB 匯入。', 'error');
-      return;
+    showGlbInspection(inspection, data, license, generation, requestToken);
+    if (inspection.complete && !glbManualMapping.checked) {
+      await finalizeGlbInspection();
+    } else {
+      importGlbBtn.textContent = '建立手動映射人物';
+      setAssetStatus('診斷完成：請確認 17 個 PoseMan 關節映射後建立人物。');
     }
-    importedFigure.assetRef.assetId = assetId;
-    withHistory(() => {
-      addImportedFigure(importedFigure, { assetId, assetName: license.metadata.assetName, license: license.metadata });
-    });
-    attached = true;
-    scheduleSave();
-    glbFileInput.value = '';
-    setAssetStatus(`匯入成功：${license.metadata.assetName}（${assetId.slice(0, 12)}…）`, 'success');
   } catch (error) {
-    if (!attached) importedFigure?.dispose?.();
-    setAssetStatus(`匯入失敗：${error?.message || 'GLB 格式不正確。'}`, 'error');
+    if (glbImportSession.isCurrent(requestToken)) {
+      discardGlbInspection();
+      setAssetStatus(`匯入失敗：${error?.message || 'GLB 格式不正確。'}`, 'error');
+      importGlbBtn.disabled = false;
+    }
   } finally {
-    importGlbBtn.disabled = false;
+    if (glbImportSession.isCurrent(requestToken)) importGlbBtn.disabled = false;
   }
 }
 importGlbBtn.addEventListener('click', importSelectedGlb);
+glbSkeletonSelect.addEventListener('change', () => {
+  if (pendingGlbInspection) {
+    const previous = pendingGlbInspection.inspection.skeletons.find((entry) => entry.selector === glbSkeletonSelect.dataset.previousSelector);
+    if (previous) pendingGlbInspection.mappings[previous.selector] = captureGlbRowMapping();
+    glbSkeletonSelect.dataset.previousSelector = glbSkeletonSelect.value;
+    renderGlbMappingEditor();
+  }
+});
+glbManualMapping.addEventListener('change', () => {
+  if (!pendingGlbInspection) return;
+  if (glbManualMapping.checked) renderGlbMappingEditor();
+  else setAssetStatus('已選擇自動映射；按下建立人物即可直接匯入。');
+});
+glbMappingPresetSaveBtn.addEventListener('click', () => {
+  const entry = selectedGlbDiagnostic();
+  if (!entry) return;
+  pendingGlbInspection.mappings[entry.selector] = captureGlbRowMapping();
+  const validation = validateManualMapping(pendingGlbInspection.mappings[entry.selector], entry.boneObjects);
+  if (!validation.ok) {
+    setAssetStatus(validation.errors.join(' '), 'error');
+    return;
+  }
+  const result = saveMappingPreset(glbMappingPresetName.value, validation.mapping);
+  setAssetStatus(result.ok ? `已保存映射預設「${result.preset.name}」。` : result.errors.join(' '), result.ok ? 'success' : 'error');
+  if (result.ok) {
+    populateMappingPresets();
+    glbMappingPresetSelect.value = result.preset.name;
+  }
+});
+glbMappingPresetApplyBtn.addEventListener('click', () => {
+  const entry = selectedGlbDiagnostic();
+  const preset = getMappingPreset(glbMappingPresetSelect.value);
+  if (!entry || !preset) return;
+  const validation = validateManualMapping(preset.mapping, entry.boneObjects);
+  if (!validation.ok) {
+    setAssetStatus(`預設無法套用：${validation.errors.join(' ')}`, 'error');
+    return;
+  }
+  pendingGlbInspection.mappings[entry.selector] = validation.mapping;
+  glbManualMapping.checked = true;
+  renderGlbMappingEditor();
+  setAssetStatus(`已套用映射預設「${preset.name}」。`, 'success');
+});
+glbMappingPresetDeleteBtn.addEventListener('click', () => {
+  const name = glbMappingPresetSelect.value;
+  if (!name) return;
+  const result = deleteMappingPreset(name);
+  setAssetStatus(result.ok ? `已刪除映射預設「${name}」。` : result.errors.join(' '), result.ok ? 'success' : 'error');
+  populateMappingPresets();
+});
+glbMappingCancelBtn.addEventListener('click', () => {
+  discardGlbInspection();
+  setAssetStatus('已清除 GLB 診斷。');
+});
+glbFileInput.addEventListener('change', () => {
+  discardGlbInspection();
+  importGlbBtn.disabled = false;
+});
+window.addEventListener('poseman-scene-generation', () => {
+  if (pendingGlbInspection) {
+    discardGlbInspection();
+    setAssetStatus('場景已變更，已清除過期 GLB 診斷。', 'error');
+  }
+});
 window.addEventListener('poseman-asset-warning', (event) => {
   setAssetStatus(String(event.detail || '外部資產無法載入。'), 'error');
 });

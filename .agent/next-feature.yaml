@@ -1,6 +1,7 @@
 evaluation_date: 2026-08-12
-candidate: 外部 GLB 骨架診斷與手動映射編輯器
+candidate: 匯入 GLB 動畫片段預覽與受控 Retarget
 status: proposed
-reason: CHANGE-005 已支援常見 Mixamo、Blender、VRM aliases；不符合命名慣例的合法人體 rig 仍需要可視化診斷與人工指定 17 關節。
-scope: import preview、missing/duplicate bone diagnostics、17-joint dropdown mapping、mapping preset save/load；不自動重寫或上傳原始 GLB。
-owner_acceptance: pending
+reason: CHANGE-006 已能穩定選定並保存自訂骨架映射；下一步可讓授權資產內嵌動畫直接預覽，再依現有 17 關節契約安全套用。
+scope: 列出內嵌 animation clips、播放/暫停/時間軸預覽、選擇性轉換為 PoseMan 目前姿勢；不下載外部動畫、不修改來源 GLB、不自動覆寫場景。
+owner_acceptance: not_requested
+change: CHANGE-007-candidate

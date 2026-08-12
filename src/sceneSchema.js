@@ -52,7 +52,11 @@ export function sanitizeAssetRef(raw) {
       if (typeof value === 'string' && value.length > 0 && value.length <= 160) mapping[name] = value;
     }
   }
-  return assetId ? { assetId, mapping } : null;
+  const rawSelector = Object.hasOwn(source, 'skeletonSelector') ? source.skeletonSelector : '';
+  const skeletonSelector = typeof rawSelector === 'string'
+    ? safeText(rawSelector, 160)
+    : '';
+  return assetId ? { assetId, mapping, ...(skeletonSelector ? { skeletonSelector } : {}) } : null;
 }
 
 export function canRemoveFigure(count) {
