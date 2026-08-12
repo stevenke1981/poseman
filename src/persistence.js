@@ -4,7 +4,8 @@ import { props, addProp, setActiveProp, notifyPropsChange } from './propsManager
 import { transform } from './interaction.js';
 import { JOINT_NAMES } from './mannequin.js';
 import { importGlbArrayBuffer } from './glbImporter.js';
-import { getAsset } from './assetStore.js';
+import { getAsset, putAsset } from './assetStore.js';
+import { DEFAULT_HUMAN, isDefaultHumanAssetId, loadBundledDefaultHumanBuffer } from './defaultHuman.js';
 import { hasPropType } from './props.js';
 import { gridToggle } from './dom.js';
 import {
@@ -109,8 +110,11 @@ export function applyScene(data) {
       }
     }
   } else {
-    addFigure(false).group.position.x = -0.4;
-    addFigure(true).group.position.x = 0.4;
+    const placeholder = addFigure(false);
+    placeholder.externalPending = true;
+    placeholder.assetName = DEFAULT_HUMAN.assetName;
+    placeholder.license = { ...DEFAULT_HUMAN.license };
+    void hydrateBundledDefaultFigure(generation, 0, placeholder);
   }
 
   const rawProps = Array.isArray(data?.props)
@@ -133,9 +137,59 @@ export function applyScene(data) {
   return generation;
 }
 
+async function hydrateBundledDefaultFigure(generation, figureIndex, placeholder) {
+  try {
+    const data = await loadBundledDefaultHumanBuffer();
+    if (generation !== applyGeneration) return null;
+    const assetId = await putAsset(data, DEFAULT_HUMAN.license);
+    if (generation !== applyGeneration) return null;
+    const figure = await importGlbArrayBuffer(data, {
+      assetId,
+      assetName: DEFAULT_HUMAN.assetName,
+      license: DEFAULT_HUMAN.license,
+    });
+    if (generation !== applyGeneration) {
+      figure.dispose?.();
+      return null;
+    }
+    if (figures[figureIndex] !== placeholder) {
+      figure.dispose?.();
+      return null;
+    }
+    const currentPose = placeholder ? extractPose(placeholder) : {};
+    const currentPosition = placeholder?.group?.position || { x: 0, y: 0, z: 0 };
+    return replaceFigureAt(figureIndex, figure, {
+      assetId,
+      assetName: DEFAULT_HUMAN.assetName,
+      license: DEFAULT_HUMAN.license,
+      position: currentPosition,
+      pose: currentPose,
+    });
+  } catch (error) {
+    if (placeholder && figures[figureIndex] === placeholder) {
+      placeholder.externalPending = false;
+      placeholder.assetName = undefined;
+      placeholder.license = undefined;
+    }
+    reportAssetWarning(`預設人體載入失敗：${error?.message || '格式不正確'}；已改用程序化人偶。`);
+    if (!figures.length && generation === applyGeneration) addFigure(false);
+    return null;
+  }
+}
+
 async function hydrateImportedFigure(normalized, generation, figureIndex, placeholder) {
   try {
-    const record = await getAsset(normalized.assetRef.assetId);
+    let record = await getAsset(normalized.assetRef.assetId);
+    if (!record && isDefaultHumanAssetId(normalized.assetRef.assetId)) {
+      try {
+        const bundled = await loadBundledDefaultHumanBuffer();
+        if (generation !== applyGeneration) return null;
+        await putAsset(bundled, DEFAULT_HUMAN.license);
+        record = await getAsset(normalized.assetRef.assetId);
+      } catch {
+        record = null;
+      }
+    }
     if (!record) {
       reportAssetWarning(`找不到外部人物資產 ${normalized.license?.assetName || normalized.assetRef.assetId.slice(0, 12)}；已保留其他人物。`);
       if (!figures.length && generation === applyGeneration) addFigure(false);

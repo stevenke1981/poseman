@@ -8,7 +8,7 @@ shoulderL elbowL wristL shoulderR elbowR wristR
 hipL kneeL ankleL hipR kneeR ankleR
 ```
 
-預設 Mesh2Motion UE-style rig 的安全自動映射如下：
+預設 Mesh2Motion `human-female` UE-style rig 的安全自動映射如下：
 
 | PoseMan | Mesh2Motion | 說明 |
 | --- | --- | --- |

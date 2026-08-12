@@ -10,7 +10,7 @@
 - **姿勢範本**：站立、行走、跑步、坐下、揮手、思考
 - **多人物**：人物管理區可切換目前人物、新增男性／女性、移除目前人物（至少保留 1 人）；切換性別會保留目前姿勢與位置
 - **授權 GLB 人體匯入**：人物管理接受 `.glb` only，匯入前必須填資產名稱、選自有／CC0／CC BY 4.0／其他授權，並勾選「我有權使用並已核對授權」。CC BY／其他需要作者與 https 來源或授權說明。GLB 會檢查 magic/version、JSON、大小、外部 URI、節點／網格／骨骼／頂點上限，並以 Mixamo、Blender、VRM 常見命名映射 17 個 PoseMan 關節。
-- **預設 GLB 人體**：人物管理提供已釘選 commit 的 Mesh2Motion `human-male.glb` 下載入口（上游聲明 3D 模型／骨架／動畫為 CC0）。下載不需要授權確認；在 Blender 等工具編輯後再匯入時，仍須填寫並核對授權。
+- **預設 GLB 人體**：空場景會載入已釘選 commit 的 Mesh2Motion `human-female.glb`（上游聲明 3D 模型／骨架／動畫為 CC0）。人物管理也可一鍵載入或下載同一檔；下載不需要授權確認。在 Blender 等工具編輯後再匯入時，仍須填寫並核對授權。
 - **移動模式**：直接拖曳人物／物品在三維空間自由移動（X/Y/Z，可停放空中任意高度），或以 TransformControls gizmo 沿任一軸／平面精確移動；地面顯示軸色十字基準（X紅/Z藍/Y綠）＋垂直高度線與即時座標標籤（人與 AI/vision agent 皆可直讀）
 - **物品元件庫**：椅子、桌子、長凳、木箱、球、台座、落地燈、沙發；先選品項再按「新增物品」，可切換目前物品、調整 Y 旋轉與 0.25–3 倍等比縮放、移除物品
 - **預覽模式**：隱藏所有 UI 與選取框，得到乾淨畫面
@@ -50,7 +50,7 @@ GLB 匯入是使用者主動提供的本機檔案；PoseMan 不替使用者判�
 
 ### 預設人體資產來源與契約
 
-`public/templates/poseman-default-human.glb` 是 Mesh2Motion `human-male.glb` 在 commit `05fadfd7a513d45e8b7504e84de5c3497d73c9d0` 的 unchanged bundle，大小 `534004` bytes、SHA-256 `c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019`。完整來源、CC0 證據與 opt-in 更新命令見 [`public/templates/poseman-default-human.PROVENANCE.md`](public/templates/poseman-default-human.PROVENANCE.md)。它是 self-contained GLB（含內嵌圖片、無外部 URI），匯入時會以骨架安全上限、圖片 header/像素與 accessor 限制保護。上游 UE-style 骨架使用 `spine_01`、`spine_02`、`spine_03`，其中 `spine_03` 依層級映射為 PoseMan `chest`；PoseMan 精確 17 關節、座標與編輯限制見 [`docs/POSEMAN-GLB-JOINT-CONTRACT.md`](docs/POSEMAN-GLB-JOINT-CONTRACT.md)。預設下載僅是檔案取得，不替使用者判定後續使用權。
+`public/templates/poseman-default-human.glb` 是 Mesh2Motion `human-female.glb` 在 commit `05fadfd7a513d45e8b7504e84de5c3497d73c9d0` 的 unchanged bundle，大小 `1358928` bytes、SHA-256 `2b1c47e5eeebffd5097eb8a52add4ba6556dab85e50fc1c5240d744099bebae1`。完整來源、CC0 證據與 opt-in 更新命令見 [`public/templates/poseman-default-human.PROVENANCE.md`](public/templates/poseman-default-human.PROVENANCE.md)。它是 self-contained GLB（無外部 URI），匯入時會以骨架安全上限、圖片 header/像素與 accessor 限制保護。上游 UE-style 骨架使用 `spine_01`、`spine_02`、`spine_03`，其中 `spine_03` 依層級映射為 PoseMan `chest`；PoseMan 精確 17 關節、座標與編輯限制見 [`docs/POSEMAN-GLB-JOINT-CONTRACT.md`](docs/POSEMAN-GLB-JOINT-CONTRACT.md)。預設下載僅是檔案取得，不替使用者判定後續使用權。
 
 ## AI 設定
 

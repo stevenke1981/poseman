@@ -18,6 +18,7 @@ import {
 } from '../src/glbImporter.js';
 import * as THREE from 'three';
 import { JOINT_NAMES } from '../src/mannequin.js';
+import { DEFAULT_HUMAN, isDefaultHumanAssetId, verifyDefaultHumanBytes } from '../src/defaultHuman.js';
 import {
   loadMappingPresets,
   saveMappingPreset,
@@ -246,11 +247,15 @@ test('pinned Mesh2Motion CC0 humanoid is exact, bounded, auto-maps 17 joints, an
   assert.equal(fs.existsSync(licensePath), true);
   assert.equal(fs.existsSync(licenseTextPath), true);
   assert.match(fs.readFileSync(licensePath, 'utf8'), /CC0/);
-  assert.match(fs.readFileSync(licensePath, 'utf8'), /c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019/);
+  assert.match(fs.readFileSync(licensePath, 'utf8'), /2b1c47e5eeebffd5097eb8a52add4ba6556dab85e50fc1c5240d744099bebae1/);
+  assert.match(fs.readFileSync(licensePath, 'utf8'), /human-female\.glb/);
   assert.match(fs.readFileSync(licenseTextPath, 'utf8'), /CC0 1\.0 Universal/);
   const after = fs.readFileSync(templatePath);
-  assert.equal(after.byteLength, 534004);
-  assert.equal(createHash('sha256').update(after).digest('hex'), 'c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019');
+  assert.equal(after.byteLength, DEFAULT_HUMAN.bytes);
+  assert.equal(createHash('sha256').update(after).digest('hex'), DEFAULT_HUMAN.sha256);
+  assert.equal(isDefaultHumanAssetId(DEFAULT_HUMAN.sha256.toUpperCase()), true);
+  const verified = await verifyDefaultHumanBytes(after);
+  assert.equal(verified.byteLength, DEFAULT_HUMAN.bytes);
 
   const previousSelf = globalThis.self;
   const previousDocument = globalThis.document;
@@ -276,8 +281,8 @@ test('pinned Mesh2Motion CC0 humanoid is exact, bounded, auto-maps 17 joints, an
     const figure = createImportedFigure(inspection.gltf, {
       mapping: inspection.mapping,
       skeletonSelector: inspection.selectedSkeletonSelector,
-      assetName: 'Mesh2Motion human-male',
-      license: { licenseType: 'cc0', assetName: 'Mesh2Motion human-male', confirmed: true },
+      assetName: 'Mesh2Motion human-female',
+      license: { licenseType: 'cc0', assetName: 'Mesh2Motion human-female', confirmed: true },
     });
     try {
       figure.group.updateMatrixWorld(true);

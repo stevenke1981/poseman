@@ -19,6 +19,7 @@ export const addFemaleFigureBtn = document.getElementById('addFemaleFigureBtn');
 export const removeFigureBtn = document.getElementById('removeFigureBtn');
 export const figureManageHint = document.getElementById('figureManageHint');
 export const downloadGlbTemplateLink = document.getElementById('downloadGlbTemplateLink');
+export const loadDefaultHumanBtn = document.getElementById('loadDefaultHumanBtn');
 export const glbFileInput = document.getElementById('glbFileInput');
 export const glbAssetName = document.getElementById('glbAssetName');
 export const glbLicenseType = document.getElementById('glbLicenseType');

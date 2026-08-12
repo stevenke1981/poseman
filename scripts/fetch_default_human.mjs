@@ -3,9 +3,9 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-const URL = 'https://raw.githubusercontent.com/Mesh2Motion/mesh2motion-app/05fadfd7a513d45e8b7504e84de5c3497d73c9d0/static/models-variation/human-male.glb';
-const EXPECTED_BYTES = 534004;
-const EXPECTED_SHA256 = 'c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019';
+const URL = 'https://raw.githubusercontent.com/Mesh2Motion/mesh2motion-app/05fadfd7a513d45e8b7504e84de5c3497d73c9d0/static/models-variation/human-female.glb';
+const EXPECTED_BYTES = 1358928;
+const EXPECTED_SHA256 = '2b1c47e5eeebffd5097eb8a52add4ba6556dab85e50fc1c5240d744099bebae1';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(repoRoot, 'public', 'templates', 'poseman-default-human.glb');
 

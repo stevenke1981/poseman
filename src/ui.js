@@ -39,6 +39,7 @@ import { captureView, captureSheet } from './exporter.js';
 import {
   createImportedFigure,
   disposeParsedGltf,
+  importGlbArrayBuffer,
   inspectGlbArrayBuffer,
   validateLicenseMetadata,
   validateManualMapping,
@@ -46,6 +47,7 @@ import {
   LICENSE_TYPES,
 } from './glbImporter.js';
 import { putAsset } from './assetStore.js';
+import { DEFAULT_HUMAN, loadBundledDefaultHumanBuffer } from './defaultHuman.js';
 import { createGlbImportSession } from './glbImportSession.js';
 import {
   loadMappingPresets,
@@ -124,6 +126,7 @@ import {
   addFemaleFigureBtn,
   removeFigureBtn,
   figureManageHint,
+  loadDefaultHumanBtn,
   glbFileInput,
   glbAssetName,
   glbLicenseType,
@@ -381,6 +384,43 @@ function addManagedFigure(female) {
 }
 addMaleFigureBtn.addEventListener('click', () => addManagedFigure(false));
 addFemaleFigureBtn.addEventListener('click', () => addManagedFigure(true));
+
+async function loadBundledDefaultHuman() {
+  if (!loadDefaultHumanBtn) return;
+  loadDefaultHumanBtn.disabled = true;
+  setAssetStatus('正在載入預設人體…');
+  const generation = getSceneGeneration();
+  try {
+    const data = await loadBundledDefaultHumanBuffer();
+    if (generation !== getSceneGeneration()) return;
+    const assetId = await putAsset(data, DEFAULT_HUMAN.license);
+    const figure = await importGlbArrayBuffer(data, {
+      assetId,
+      assetName: DEFAULT_HUMAN.assetName,
+      license: DEFAULT_HUMAN.license,
+    });
+    if (generation !== getSceneGeneration()) {
+      figure.dispose?.();
+      return;
+    }
+    withHistory(() => {
+      addImportedFigure(figure, {
+        assetId,
+        assetName: DEFAULT_HUMAN.assetName,
+        license: DEFAULT_HUMAN.license,
+      });
+    });
+    scheduleSave();
+    setAssetStatus(`已載入預設人體：${DEFAULT_HUMAN.assetName}`, 'success');
+  } catch (error) {
+    setAssetStatus(`預設人體載入失敗：${error?.message || '格式不正確'}`, 'error');
+  } finally {
+    loadDefaultHumanBtn.disabled = false;
+  }
+}
+loadDefaultHumanBtn?.addEventListener('click', () => {
+  void loadBundledDefaultHuman();
+});
 
 function setAssetStatus(message, tone = '') {
   assetImportStatus.textContent = message || '';

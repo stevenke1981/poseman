@@ -250,6 +250,7 @@ test('GLB template download is public, accessible, and requires no import confir
   assert.equal(link?.name, 'a');
   assert.equal(link?.attrs.get('href'), '/templates/poseman-default-human.glb');
   assert.equal(link?.attrs.get('download'), 'poseman-default-human.glb');
+  assert.equal(htmlIds.get('loadDefaultHumanBtn')?.[0]?.name, 'button');
   const linkBlock = html.match(/<a\s+id="downloadGlbTemplateLink"[\s\S]*?<\/a>/)?.[0] || '';
   assert.match(linkBlock, /下載預設人體 GLB（Mesh2Motion CC0）/);
   assert.match(html, /Mesh2Motion 固定版本來源檔/);
@@ -259,7 +260,8 @@ test('GLB template download is public, accessible, and requires no import confir
   assert.equal(fs.existsSync(path.join(here, '..', 'public', 'templates', 'poseman-default-human.LICENSE-CC0.md')), true);
   const fetchScript = fs.readFileSync(path.join(here, '..', 'scripts', 'fetch_default_human.mjs'), 'utf8');
   assert.match(fetchScript, /05fadfd7a513d45e8b7504e84de5c3497d73c9d0/);
-  assert.match(fetchScript, /c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019/);
+  assert.match(fetchScript, /human-female\.glb/);
+  assert.match(fetchScript, /2b1c47e5eeebffd5097eb8a52add4ba6556dab85e50fc1c5240d744099bebae1/);
   assert.match(fetchScript, /--write/);
 });
 
