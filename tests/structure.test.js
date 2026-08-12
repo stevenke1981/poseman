@@ -293,6 +293,10 @@ test('range controls expose Traditional Chinese accessible names', () => {
     const label = htmlIds.get(id)?.[0]?.attrs.get('aria-label') || '';
     assert.match(label, /旋轉|縮放/, `${id} must provide an accessible name`);
   }
+  for (const id of ['figPosX', 'figPosY', 'figPosZ', 'propPosX', 'propPosY', 'propPosZ']) {
+    const label = htmlIds.get(id)?.[0]?.attrs.get('aria-label') || '';
+    assert.match(label, /位置|高度/, `${id} must provide an accessible name`);
+  }
 });
 
 test('initial panel opens only the three common sections and bulk prop restore stays unselected', () => {

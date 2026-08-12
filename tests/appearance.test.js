@@ -12,6 +12,10 @@ import {
   sanitizePropRecord,
   serializePropRecord,
   clampPropScale,
+  clampWorldAxis,
+  clampWorldPosition,
+  applyWorldPosition,
+  POSITION_LIMITS,
   normalizePropRotation,
   canRemoveFigure,
   captureFigureRebuildState,
@@ -251,6 +255,19 @@ test('prop v1/v2 defaults and v5 round-trip sanitize scale and rotation', () => 
   });
   assert.equal(clampPropScale(-50), 0.25);
   assert.equal(clampPropScale(99), 3);
+  assert.deepEqual(clampWorldPosition(80, -40, -80), {
+    x: POSITION_LIMITS.maxX,
+    y: POSITION_LIMITS.minY,
+    z: POSITION_LIMITS.minZ,
+  });
+  assert.equal(clampWorldAxis('bad', 'y'), 0);
+  assert.ok(POSITION_LIMITS.minY < 0);
+  const movable = new THREE.Group();
+  applyWorldPosition(movable, 12.5, -3, 8);
+  assert.deepEqual(movable.position.toArray(), [12.5, -3, 8]);
+  applyWorldPosition(movable, undefined, 0, undefined);
+  assert.equal(movable.position.y, 0);
+  assert.equal(movable.position.x, 12.5);
   const group = new THREE.Group();
   group.position.set(1.2, 0.4, -0.8);
   group.rotation.y = 7;

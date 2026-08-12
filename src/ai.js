@@ -40,7 +40,7 @@ export function buildSystemPrompt(snapshot) {
 {"op":"rotateProp","prop":0,"deg":45}
 {"op":"removeProp","prop":0}
 關節：${JOINT_NAMES.join(', ')}（L=角色自身左側）。
-約定：角色面向 +Z；rotation.x 負值＝肢体向前、正值向後；rotation.z 正值＝左側向外、負值＝右側向外。位置 y=高度（0=地面，可停放空中）。
+約定：角色面向 +Z；rotation.x 負值＝肢体向前、正值向後；rotation.z 正值＝左側向外、負值＝右側向外。位置範圍 x/z -50..50、y -20..50（0=地面，可停放空中或略低於地面）。
 姿勢範本：${Object.keys(PRESET_LABELS).join(', ')}。
 物品：${Object.keys(PROP_TYPES).join(', ')}。
 目前場景：${JSON.stringify(snapshot)}

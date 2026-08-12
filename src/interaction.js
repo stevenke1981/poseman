@@ -6,6 +6,7 @@ import { figures, setActiveFigure, syncSliders } from './figures.js';
 import { props, setActiveProp } from './propsManager.js';
 import { scheduleSave } from './persistence.js';
 import { beginGesture, endGesture } from './history.js';
+import { applyWorldPosition } from './sceneSchema.js';
 import { jointSelect } from './dom.js';
 
 // ---------------------------------------------------------------- picking / drag
@@ -26,6 +27,15 @@ const dragPlane = new THREE.Plane();
 const planeNormal = new THREE.Vector3();
 const planeHit = new THREE.Vector3();
 
+const groundNormal = new THREE.Vector3(0, 1, 0);
+const groundPlane = new THREE.Plane();
+
+function notifyMoved() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('poseman-moved'));
+  }
+}
+
 function beginMoveDrag(obj) {
   camera.getWorldDirection(planeNormal);
   dragPlane.setFromNormalAndCoplanarPoint(planeNormal, obj.position);
@@ -35,6 +45,9 @@ function beginMoveDrag(obj) {
     dx: obj.position.x - planeHit.x,
     dy: obj.position.y - planeHit.y,
     dz: obj.position.z - planeHit.z,
+    startX: obj.position.x,
+    startY: obj.position.y,
+    startZ: obj.position.z,
   };
   beginGesture();
 }
@@ -97,10 +110,22 @@ window.addEventListener('pointermove', (e) => {
   if (moveDrag) {
     setNdc(e);
     raycaster.setFromCamera(ndc, camera);
-    if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
-      moveDrag.obj.position.x = THREE.MathUtils.clamp(planeHit.x + moveDrag.dx, -10, 10);
-      moveDrag.obj.position.y = THREE.MathUtils.clamp(planeHit.y + moveDrag.dy, 0, 10);
-      moveDrag.obj.position.z = THREE.MathUtils.clamp(planeHit.z + moveDrag.dz, -10, 10);
+    if (e.shiftKey) {
+      groundPlane.setFromNormalAndCoplanarPoint(groundNormal, new THREE.Vector3(0, moveDrag.startY, 0));
+      if (raycaster.ray.intersectPlane(groundPlane, planeHit)) {
+        applyWorldPosition(moveDrag.obj, planeHit.x + moveDrag.dx, moveDrag.startY, planeHit.z + moveDrag.dz);
+        notifyMoved();
+        scheduleSave();
+      }
+    } else if (e.altKey) {
+      if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
+        applyWorldPosition(moveDrag.obj, moveDrag.startX, planeHit.y + moveDrag.dy, moveDrag.startZ);
+        notifyMoved();
+        scheduleSave();
+      }
+    } else if (raycaster.ray.intersectPlane(dragPlane, planeHit)) {
+      applyWorldPosition(moveDrag.obj, planeHit.x + moveDrag.dx, planeHit.y + moveDrag.dy, planeHit.z + moveDrag.dz);
+      notifyMoved();
       scheduleSave();
     }
     return;
@@ -141,4 +166,8 @@ transform.addEventListener('dragging-changed', (e) => {
 });
 transform.addEventListener('mouseDown', beginGesture);
 transform.addEventListener('mouseUp', endGesture);
-transform.addEventListener('objectChange', scheduleSave);
+transform.addEventListener('objectChange', () => {
+  if (transform.object) applyWorldPosition(transform.object);
+  notifyMoved();
+  scheduleSave();
+});

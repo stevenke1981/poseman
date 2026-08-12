@@ -30,7 +30,7 @@ import {
   copiedSidePose,
 } from './figures.js';
 import { props, addProp, removeProp, setActiveProp, setPropsChangeHandler } from './propsManager.js';
-import { clampPropScale, normalizePropRotation, canRemoveFigure } from './sceneSchema.js';
+import { clampPropScale, normalizePropRotation, canRemoveFigure, applyWorldPosition, clampWorldAxis } from './sceneSchema.js';
 import { transform } from './interaction.js';
 import { applyScene, getSceneGeneration, scheduleSave, serializeScene, sanitizePose } from './persistence.js';
 import { withHistory, beginGesture, endGesture, undo, redo } from './history.js';
@@ -126,6 +126,13 @@ import {
   addFemaleFigureBtn,
   removeFigureBtn,
   figureManageHint,
+  figPosX,
+  figPosY,
+  figPosZ,
+  figPosXVal,
+  figPosYVal,
+  figPosZVal,
+  groundFigureBtn,
   loadDefaultHumanBtn,
   glbFileInput,
   glbAssetName,
@@ -149,6 +156,13 @@ import {
   glbMappingPresetDeleteBtn,
   glbMappingCancelBtn,
   currentPropSelect,
+  propPosX,
+  propPosY,
+  propPosZ,
+  propPosXVal,
+  propPosYVal,
+  propPosZVal,
+  groundPropBtn,
   addPropBtn,
   propRotY,
   propRotYVal,
@@ -331,6 +345,62 @@ moveBtn.addEventListener('click', () => {
   syncTransformTarget();
 });
 
+function formatPos(value) {
+  return Number(value).toFixed(2);
+}
+
+function syncFigurePositionControls(figure = state.activeFigure) {
+  const disabled = !figure;
+  for (const control of [figPosX, figPosY, figPosZ, groundFigureBtn]) control.disabled = disabled;
+  const x = disabled ? 0 : figure.group.position.x;
+  const y = disabled ? 0 : figure.group.position.y;
+  const z = disabled ? 0 : figure.group.position.z;
+  figPosX.value = String(clampWorldAxis(x, 'x'));
+  figPosY.value = String(clampWorldAxis(y, 'y'));
+  figPosZ.value = String(clampWorldAxis(z, 'z'));
+  figPosXVal.textContent = formatPos(x);
+  figPosYVal.textContent = formatPos(y);
+  figPosZVal.textContent = formatPos(z);
+}
+
+function syncPropPositionControls(prop = state.selectedProp) {
+  const disabled = !prop;
+  for (const control of [propPosX, propPosY, propPosZ, groundPropBtn]) control.disabled = disabled;
+  const x = disabled ? 0 : prop.group.position.x;
+  const y = disabled ? 0 : prop.group.position.y;
+  const z = disabled ? 0 : prop.group.position.z;
+  propPosX.value = String(clampWorldAxis(x, 'x'));
+  propPosY.value = String(clampWorldAxis(y, 'y'));
+  propPosZ.value = String(clampWorldAxis(z, 'z'));
+  propPosXVal.textContent = formatPos(x);
+  propPosYVal.textContent = formatPos(y);
+  propPosZVal.textContent = formatPos(z);
+}
+
+function syncWorldPositionControls() {
+  syncFigurePositionControls();
+  syncPropPositionControls();
+}
+
+function bindWorldPositionSlider(input, valueEl, axis, getTarget) {
+  input.addEventListener('pointerdown', beginGesture);
+  input.addEventListener('keydown', beginGesture);
+  input.addEventListener('input', () => {
+    const target = getTarget();
+    if (!target?.group) return;
+    const next = clampWorldAxis(input.value, axis);
+    applyWorldPosition(
+      target.group,
+      axis === 'x' ? next : undefined,
+      axis === 'y' ? next : undefined,
+      axis === 'z' ? next : undefined,
+    );
+    valueEl.textContent = formatPos(target.group.position[axis]);
+    scheduleSave();
+  });
+  input.addEventListener('change', endGesture);
+}
+
 function syncAppearanceControls(appearance) {
   const safe = sanitizeAppearance(appearance);
   skinToneSelect.value = safe.skinTone;
@@ -364,6 +434,7 @@ function refreshFigureSelect() {
   // Selecting a figure clears the prop selection in figures.js; mirror that
   // state immediately in the prop controls so no stale slider remains active.
   if (typeof syncPropControls === 'function') syncPropControls();
+  syncFigurePositionControls();
   syncTransformTarget();
 }
 setFiguresChangeHandler(refreshFigureSelect);
@@ -375,6 +446,7 @@ figureSelect.addEventListener('change', () => {
   setActiveFigure(f);
   syncAppearanceControls(f.appearance);
   syncImportedFigureControls(f);
+  syncFigurePositionControls(f);
   scheduleSave();
 });
 
@@ -384,6 +456,16 @@ function addManagedFigure(female) {
 }
 addMaleFigureBtn.addEventListener('click', () => addManagedFigure(false));
 addFemaleFigureBtn.addEventListener('click', () => addManagedFigure(true));
+
+bindWorldPositionSlider(figPosX, figPosXVal, 'x', () => state.activeFigure);
+bindWorldPositionSlider(figPosY, figPosYVal, 'y', () => state.activeFigure);
+bindWorldPositionSlider(figPosZ, figPosZVal, 'z', () => state.activeFigure);
+groundFigureBtn.addEventListener('click', () => {
+  if (!state.activeFigure) return;
+  withHistory(() => applyWorldPosition(state.activeFigure.group, undefined, 0, undefined));
+  syncFigurePositionControls();
+  scheduleSave();
+});
 
 async function loadBundledDefaultHuman() {
   if (!loadDefaultHumanBtn) return;
@@ -797,6 +879,7 @@ function syncPropControls() {
     propRotYVal.textContent = '0°';
     propScale.value = '1';
     propScaleVal.textContent = '1.00×';
+    syncPropPositionControls(null);
     return;
   }
   const deg = Math.round(p.group.rotation.y / DEG);
@@ -805,6 +888,7 @@ function syncPropControls() {
   const scale = clampPropScale(p.group.scale.x);
   propScale.value = String(scale);
   propScaleVal.textContent = `${scale.toFixed(2)}×`;
+  syncPropPositionControls(p);
 }
 
 function refreshPropSelects(meta = undefined) {
@@ -862,6 +946,16 @@ for (const [input, value, format] of [
   });
   input.addEventListener('change', endGesture);
 }
+
+bindWorldPositionSlider(propPosX, propPosXVal, 'x', () => state.selectedProp);
+bindWorldPositionSlider(propPosY, propPosYVal, 'y', () => state.selectedProp);
+bindWorldPositionSlider(propPosZ, propPosZVal, 'z', () => state.selectedProp);
+groundPropBtn.addEventListener('click', () => {
+  if (!state.selectedProp) return;
+  withHistory(() => applyWorldPosition(state.selectedProp.group, undefined, 0, undefined));
+  syncPropPositionControls();
+  scheduleSave();
+});
 
 rotatePropBtn.addEventListener('click', () => {
   if (!state.selectedProp) return;
@@ -1032,6 +1126,8 @@ function selectJoint(name) {
   syncSliders();
 }
 
+window.addEventListener('poseman-moved', syncWorldPositionControls);
+
 window.addEventListener('keydown', (e) => {
   const t = e.target;
   if (
@@ -1065,6 +1161,28 @@ window.addEventListener('keydown', (e) => {
         setActiveProp(null);
       }
       break;
+    case 'arrowleft':
+    case 'arrowright':
+    case 'arrowup':
+    case 'arrowdown':
+    case 'pageup':
+    case 'pagedown':
+    case 'q':
+    case 'e': {
+      if (!state.moveMode) break;
+      const target = state.selectedProp?.group || state.activeFigure?.group;
+      if (!target) break;
+      e.preventDefault();
+      const step = e.shiftKey ? 0.05 : 0.2;
+      const key = e.key.toLowerCase();
+      const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
+      const dy = key === 'pageup' || key === 'e' ? step : key === 'pagedown' || key === 'q' ? -step : 0;
+      const dz = key === 'arrowup' ? -step : key === 'arrowdown' ? step : 0;
+      applyWorldPosition(target, target.position.x + dx, target.position.y + dy, target.position.z + dz);
+      syncWorldPositionControls();
+      scheduleSave();
+      break;
+    }
     case '1':
       selectJoint('hips');
       break;

@@ -33,6 +33,23 @@
           </div>
           <button id="removeFigureBtn" type="button">移除目前人物</button>
           <small id="figureManageHint" class="muted-hint">至少保留 1 位人物。</small>
+          <label>人物位置</label>
+          <div class="slider-row">
+            <span>X</span>
+            <input type="range" id="figPosX" min="-50" max="50" step="0.05" value="0" aria-label="人物 X 軸位置" />
+            <span id="figPosXVal">0.00</span>
+          </div>
+          <div class="slider-row">
+            <span>Y</span>
+            <input type="range" id="figPosY" min="-20" max="50" step="0.05" value="0" aria-label="人物 Y 軸高度" />
+            <span id="figPosYVal">0.00</span>
+          </div>
+          <div class="slider-row">
+            <span>Z</span>
+            <input type="range" id="figPosZ" min="-50" max="50" step="0.05" value="0" aria-label="人物 Z 軸位置" />
+            <span id="figPosZVal">0.00</span>
+          </div>
+          <button id="groundFigureBtn" type="button">人物放到地面</button>
           <div class="external-figure-card">
             <h3>匯入授權 GLB 人體</h3>
             <p class="muted-hint">僅接受 .glb；檔案會留在本機 IndexedDB，不會塞入場景 JSON。</p>
@@ -241,6 +258,23 @@
           </div>
           <label for="currentPropSelect">目前物品</label>
           <select id="currentPropSelect" aria-label="目前物品"></select>
+          <label>物品位置</label>
+          <div class="slider-row">
+            <span>X</span>
+            <input type="range" id="propPosX" min="-50" max="50" step="0.05" value="0" aria-label="物品 X 軸位置" />
+            <span id="propPosXVal">0.00</span>
+          </div>
+          <div class="slider-row">
+            <span>Y</span>
+            <input type="range" id="propPosY" min="-20" max="50" step="0.05" value="0" aria-label="物品 Y 軸高度" />
+            <span id="propPosYVal">0.00</span>
+          </div>
+          <div class="slider-row">
+            <span>Z</span>
+            <input type="range" id="propPosZ" min="-50" max="50" step="0.05" value="0" aria-label="物品 Z 軸位置" />
+            <span id="propPosZVal">0.00</span>
+          </div>
+          <button id="groundPropBtn" type="button">物品放到地面</button>
           <div class="slider-row">
             <span>Y 旋轉</span>
             <input type="range" id="propRotY" min="-180" max="180" step="1" value="0" aria-label="物品 Y 軸旋轉角度" />
@@ -271,10 +305,10 @@
           <input type="file" id="fileInput" accept=".json,application/json" hidden />
         </details>
 
-        <p id="tip">點選關節後拖曳或用滑桿微調；人物與物品可在管理區切換、新增、移除。移動模式可拖曳人物／物品或用方向軸 gizmo 精確移動。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳＝旋轉視角。復原 Ctrl+Z／重做 Ctrl+Y。</p>
+        <p id="tip">點選關節後拖曳或用滑桿微調；人物與物品可在管理區切換、新增、移除。移動模式可拖曳人物／物品（Shift 水平、Alt 垂直）或用方向軸 gizmo／座標滑桿／方向鍵微調。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳＝旋轉視角。復原 Ctrl+Z／重做 Ctrl+Y。</p>
       </aside>
 
-      <div id="hint" class="ui-hide">拖曳關節擺姿勢 ・ 移動模式直接拖曳人物/物品自由移動 ・ 空白處旋轉視角</div>
+      <div id="hint" class="ui-hide">拖曳關節擺姿勢 ・ 移動模式自由移動（Shift 水平 / Alt 垂直 / 方向鍵微調） ・ 空白處旋轉視角</div>
 
       <div id="chat">
         <div id="chatHead">

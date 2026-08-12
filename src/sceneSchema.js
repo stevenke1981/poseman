@@ -6,6 +6,14 @@ import { sanitizeAppearance } from './mannequin.js';
 export const SCENE_VERSION = 5;
 export const PROP_SCALE_MIN = 0.25;
 export const PROP_SCALE_MAX = 3;
+export const POSITION_LIMITS = Object.freeze({
+  minX: -50,
+  maxX: 50,
+  minY: -20,
+  maxY: 50,
+  minZ: -50,
+  maxZ: 50,
+});
 
 const ASSET_ID = /^[a-f0-9]{64}$/i;
 const SAFE_LICENSE_TYPES = new Set(['own', 'cc0', 'cc-by-4.0', 'other']);
@@ -86,6 +94,38 @@ export function clampPropScale(value) {
   }
   if (!Number.isFinite(n)) return 1;
   return Math.min(PROP_SCALE_MAX, Math.max(PROP_SCALE_MIN, n));
+}
+
+export function clampWorldAxis(value, axis = 'x') {
+  let n;
+  try {
+    n = Number(value);
+  } catch {
+    n = NaN;
+  }
+  if (!Number.isFinite(n)) return 0;
+  if (axis === 'y') return Math.min(POSITION_LIMITS.maxY, Math.max(POSITION_LIMITS.minY, n));
+  if (axis === 'z') return Math.min(POSITION_LIMITS.maxZ, Math.max(POSITION_LIMITS.minZ, n));
+  return Math.min(POSITION_LIMITS.maxX, Math.max(POSITION_LIMITS.minX, n));
+}
+
+export function clampWorldPosition(x, y, z) {
+  return {
+    x: clampWorldAxis(x, 'x'),
+    y: clampWorldAxis(y, 'y'),
+    z: clampWorldAxis(z, 'z'),
+  };
+}
+
+export function applyWorldPosition(object, x, y, z) {
+  const current = object?.position;
+  const next = clampWorldPosition(
+    x === undefined ? current?.x : x,
+    y === undefined ? current?.y : y,
+    z === undefined ? current?.z : z,
+  );
+  if (current && typeof current.set === 'function') current.set(next.x, next.y, next.z);
+  return next;
 }
 
 export function normalizePropRotation(value) {

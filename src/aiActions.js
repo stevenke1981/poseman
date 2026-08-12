@@ -8,7 +8,7 @@ import { props, addProp, removeProp } from './propsManager.js';
 import { transform } from './interaction.js';
 import { scheduleSave } from './persistence.js';
 import { beginGesture, endGesture } from './history.js';
-import { normalizePropRotation, canRemoveFigure } from './sceneSchema.js';
+import { normalizePropRotation, canRemoveFigure, applyWorldPosition } from './sceneSchema.js';
 
 function selectedInfo() {
   const group = transform.object || (state.selectedProp && state.selectedProp.group);
@@ -118,9 +118,12 @@ export function applyActions(actions) {
       case 'moveFigure': {
         const f = figures[figureIndex(a.figure)];
         if (!f) return skip(`找不到人物 ${a.figure}`);
-        if (Number.isFinite(a.x)) f.group.position.x = THREE.MathUtils.clamp(a.x, -10, 10);
-        if (Number.isFinite(a.y)) f.group.position.y = THREE.MathUtils.clamp(a.y, 0, 10);
-        if (Number.isFinite(a.z)) f.group.position.z = THREE.MathUtils.clamp(a.z, -10, 10);
+        applyWorldPosition(
+          f.group,
+          Number.isFinite(a.x) ? a.x : undefined,
+          Number.isFinite(a.y) ? a.y : undefined,
+          Number.isFinite(a.z) ? a.z : undefined,
+        );
         applied++;
         break;
       }
@@ -144,9 +147,12 @@ export function applyActions(actions) {
       case 'moveProp': {
         const p = props[propIndex(a.prop)];
         if (!p) return skip(`找不到物品 ${a.prop}`);
-        if (Number.isFinite(a.x)) p.group.position.x = THREE.MathUtils.clamp(a.x, -10, 10);
-        if (Number.isFinite(a.y)) p.group.position.y = THREE.MathUtils.clamp(a.y, 0, 10);
-        if (Number.isFinite(a.z)) p.group.position.z = THREE.MathUtils.clamp(a.z, -10, 10);
+        applyWorldPosition(
+          p.group,
+          Number.isFinite(a.x) ? a.x : undefined,
+          Number.isFinite(a.y) ? a.y : undefined,
+          Number.isFinite(a.z) ? a.z : undefined,
+        );
         applied++;
         break;
       }
