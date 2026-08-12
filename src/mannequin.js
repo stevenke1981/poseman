@@ -43,23 +43,52 @@ export const OUTFIT_STYLES = Object.freeze({
   graphite: Object.freeze({ label: '石墨 Graphite', base: 0x313741, panel: 0x596575, trim: 0xb7c0ce }),
 });
 
-export const DEFAULT_APPEARANCE = Object.freeze({ skinTone: 'warm', outfit: 'indigo' });
+export const BODY_PROFILES = Object.freeze({
+  balanced: Object.freeze({ label: '均衡 Balanced', shoulder: 1, hip: 1, torso: 1, limb: 1 }),
+  slender: Object.freeze({ label: '修長 Slender', shoulder: 0.9, hip: 0.92, torso: 0.91, limb: 0.96 }),
+  athletic: Object.freeze({ label: '健壯 Athletic', shoulder: 1.12, hip: 1.06, torso: 1.06, limb: 1.04 }),
+});
+
+export const HAIR_STYLES = Object.freeze({
+  short: Object.freeze({ label: '短髮 Short' }),
+  bob: Object.freeze({ label: '鮑伯 Bob' }),
+  long: Object.freeze({ label: '長髮 Long' }),
+});
+
+export const HAIR_COLORS = Object.freeze({
+  espresso: Object.freeze({ label: '濃咖 Espresso', base: 0x2b2119, lite: 0x46352a }),
+  chestnut: Object.freeze({ label: '栗棕 Chestnut', base: 0x5d3a24, lite: 0x785033 }),
+  raven: Object.freeze({ label: '烏黑 Raven', base: 0x202329, lite: 0x3d424b }),
+  auburn: Object.freeze({ label: '赤褐 Auburn', base: 0x743d2c, lite: 0xa55a3c }),
+});
+
+export const DEFAULT_APPEARANCE = Object.freeze({
+  skinTone: 'warm',
+  outfit: 'indigo',
+  bodyProfile: 'balanced',
+  hairStyle: 'short',
+  hairColor: 'espresso',
+});
 
 export function sanitizeAppearance(raw) {
   const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const ownValue = (key) => (Object.hasOwn(input, key) ? input[key] : undefined);
   const ownKey = (value, table, fallback) =>
     typeof value === 'string' && Object.hasOwn(table, value) ? value : fallback;
   const skinTone = ownKey(
-    input.skinTone,
+    ownValue('skinTone'),
     SKIN_TONES,
-    ownKey(input.skin, SKIN_TONES, DEFAULT_APPEARANCE.skinTone),
+    ownKey(ownValue('skin'), SKIN_TONES, DEFAULT_APPEARANCE.skinTone),
   );
   const outfit = ownKey(
-    input.outfit,
+    ownValue('outfit'),
     OUTFIT_STYLES,
-    ownKey(input.style, OUTFIT_STYLES, DEFAULT_APPEARANCE.outfit),
+    ownKey(ownValue('style'), OUTFIT_STYLES, DEFAULT_APPEARANCE.outfit),
   );
-  return { skinTone, outfit };
+  const bodyProfile = ownKey(ownValue('bodyProfile'), BODY_PROFILES, DEFAULT_APPEARANCE.bodyProfile);
+  const hairStyle = ownKey(ownValue('hairStyle'), HAIR_STYLES, DEFAULT_APPEARANCE.hairStyle);
+  const hairColor = ownKey(ownValue('hairColor'), HAIR_COLORS, DEFAULT_APPEARANCE.hairColor);
+  return { skinTone, outfit, bodyProfile, hairStyle, hairColor };
 }
 
 function figureMaterial(color, roughness = 0.82, metalness = 0.01) {
@@ -76,14 +105,16 @@ export function buildMannequin({ female = false, appearance } = {}) {
   let currentAppearance = sanitizeAppearance(appearance);
   const skinTone = SKIN_TONES[currentAppearance.skinTone];
   const outfit = OUTFIT_STYLES[currentAppearance.outfit];
+  const profile = BODY_PROFILES[currentAppearance.bodyProfile];
+  const hair = HAIR_COLORS[currentAppearance.hairColor];
   const skinMat = figureMaterial(skinTone.color, 0.76);
   const skinLiteMat = figureMaterial(skinTone.color, 0.68);
   const clothMat = figureMaterial(outfit.base, 0.9, 0);
   const panelMat = figureMaterial(outfit.panel, 0.84, 0);
   const trimMat = figureMaterial(outfit.trim, 0.72, 0.01);
   const shoeMat = figureMaterial(outfit.base, 0.76, 0.01);
-  const hairMat = figureMaterial(female ? 0x5d3a24 : 0x2b2119, 0.86);
-  const hairLiteMat = figureMaterial(female ? 0x785033 : 0x46352a, 0.9);
+  const hairMat = figureMaterial(hair.base, 0.86);
+  const hairLiteMat = figureMaterial(hair.lite, 0.9);
   const eyeWhiteMat = figureMaterial(0xf5f1e8, 0.45);
   const eyeMat = figureMaterial(0x23262c, 0.35);
   const mouthMat = figureMaterial(0x7c4350, 0.72);
@@ -106,7 +137,7 @@ export function buildMannequin({ female = false, appearance } = {}) {
   const root = new THREE.Group();
   root.name = female ? 'figure-f' : 'figure-m';
 
-  const P = female
+  const baseP = female
     ? {
         shX: 0.17,
         hipX: 0.11,
@@ -129,6 +160,17 @@ export function buildMannequin({ female = false, appearance } = {}) {
         armR: 0.049,
         foreR: 0.041,
       };
+  const P = {
+    shX: baseP.shX * profile.shoulder,
+    hipX: baseP.hipX * profile.hip,
+    headR: baseP.headR * (0.98 + profile.torso * 0.02),
+    pelvisS: [baseP.pelvisS[0] * profile.hip, baseP.pelvisS[1] * profile.torso, baseP.pelvisS[2] * profile.hip],
+    chestS: [baseP.chestS[0] * profile.shoulder, baseP.chestS[1] * profile.torso, baseP.chestS[2] * profile.shoulder],
+    thighR: baseP.thighR * profile.limb,
+    shinR: baseP.shinR * profile.limb,
+    armR: baseP.armR * profile.limb,
+    foreR: baseP.foreR * profile.limb,
+  };
 
   function joint(name, parent, x, y, z) {
     const g = new THREE.Group();
@@ -234,11 +276,14 @@ export function buildMannequin({ female = false, appearance } = {}) {
   mesh(head, sphereGeo(hr * 0.06, 12, 10), skinLiteMat, 0, 0.035, hr * 0.875, 1.15, 0.35, 0.3); // lower lip highlight
   mesh(head, sphereGeo(hr * 1.05, 24, 16), hairMat, 0, 0.135, -0.02, 0.9, 0.98, 0.98); // hair cap
   mesh(head, sphereGeo(hr * 0.42, 18, 12), hairLiteMat, 0, 0.115, hr * 0.62, 1.18, 0.46, 0.46); // fringe
-  mesh(head, sphereGeo(hr * 0.3, 16, 12), hairMat, hr * 0.82, 0.09, -0.035, 0.62, 1.28, 0.72); // side lock L
-  mesh(head, sphereGeo(hr * 0.3, 16, 12), hairMat, -hr * 0.82, 0.09, -0.035, 0.62, 1.28, 0.72); // side lock R
-  if (female) {
+  const lockScale = currentAppearance.hairStyle === 'short' ? 1.28 : currentAppearance.hairStyle === 'bob' ? 1.85 : 2.35;
+  mesh(head, sphereGeo(hr * 0.3, 16, 12), hairMat, hr * 0.82, 0.09, -0.035, 0.62, lockScale, 0.72); // side lock L
+  mesh(head, sphereGeo(hr * 0.3, 16, 12), hairMat, -hr * 0.82, 0.09, -0.035, 0.62, lockScale, 0.72); // side lock R
+  if (currentAppearance.hairStyle === 'long') {
     mesh(head, sphereGeo(hr * 0.9, 20, 14), hairMat, 0, 0.0, -0.075, 0.85, 1.7, 0.7); // long back hair
     mesh(head, sphereGeo(hr * 0.46, 18, 12), hairLiteMat, 0, -0.08, -0.13, 0.8, 1.1, 0.65); // nape volume
+  } else if (currentAppearance.hairStyle === 'bob') {
+    mesh(head, sphereGeo(hr * 0.6, 18, 12), hairMat, 0, 0.0, -0.1, 0.9, 1.3, 0.7); // bob back
   } else {
     mesh(head, sphereGeo(hr * 0.38, 16, 12), hairMat, 0, -0.015, -0.105, 0.92, 0.85, 0.62); // short nape
   }
@@ -294,12 +339,15 @@ export function buildMannequin({ female = false, appearance } = {}) {
       currentAppearance = sanitizeAppearance(next);
       const tone = SKIN_TONES[currentAppearance.skinTone];
       const style = OUTFIT_STYLES[currentAppearance.outfit];
+      const hairStyle = HAIR_COLORS[currentAppearance.hairColor];
       skinMat.color.setHex(tone.color);
       skinLiteMat.color.setHex(tone.color);
       clothMat.color.setHex(style.base);
       shoeMat.color.setHex(style.base);
       panelMat.color.setHex(style.panel);
       trimMat.color.setHex(style.trim);
+      hairMat.color.setHex(hairStyle.base);
+      hairLiteMat.color.setHex(hairStyle.lite);
       api.appearance = { ...currentAppearance };
       return api.appearance;
     },

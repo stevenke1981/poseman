@@ -1,28 +1,33 @@
 import {
-  buildMannequin,
   JOINT_NAMES,
   JOINT_LABELS,
   DEG,
   SKIN_TONES,
   OUTFIT_STYLES,
+  BODY_PROFILES,
+  HAIR_STYLES,
+  HAIR_COLORS,
   DEFAULT_APPEARANCE,
   sanitizeAppearance,
 } from './mannequin.js';
 import { PRESETS, PRESET_LABELS, loadCustomPoses, saveCustomPoses } from './poses.js';
-import { PROP_TYPES } from './props.js';
+import { PROP_TYPES, getPropDefinition } from './props.js';
 import { scene, camera, renderer, controls, grid, HOME_POS, HOME_TARGET } from './scene.js';
-import { state } from './state.js';
+import { state, chooseTransformTarget } from './state.js';
 import {
   figures,
   addFigure,
   removeFigure,
+  rebuildFigure,
   setActiveFigure,
+  setFiguresChangeHandler,
   extractPose,
   syncSliders,
   mirroredPose,
   copiedSidePose,
 } from './figures.js';
-import { addProp, removeProp } from './propsManager.js';
+import { props, addProp, removeProp, setActiveProp, setPropsChangeHandler } from './propsManager.js';
+import { clampPropScale, normalizePropRotation, canRemoveFigure } from './sceneSchema.js';
 import { transform } from './interaction.js';
 import { applyScene, scheduleSave, serializeScene, sanitizePose } from './persistence.js';
 import { withHistory, beginGesture, endGesture, undo, redo } from './history.js';
@@ -50,10 +55,11 @@ import {
   genderBtn,
   skinToneSelect,
   outfitSelect,
+  bodyProfileSelect,
+  hairStyleSelect,
+  hairColorSelect,
   appearanceResetBtn,
   resetViewBtn,
-  addBtn,
-  removeBtn,
   rotatePropBtn,
   deletePropBtn,
   saveFileBtn,
@@ -91,9 +97,33 @@ import {
   transparentCheck,
   export2Btn,
   sheetBtn,
+  figureSelect,
+  addMaleFigureBtn,
+  addFemaleFigureBtn,
+  removeFigureBtn,
+  figureManageHint,
+  currentPropSelect,
+  addPropBtn,
+  propRotY,
+  propRotYVal,
+  propScale,
+  propScaleVal,
 } from './dom.js';
 
 // ---------------------------------------------------------------- populate selects
+function setPanelSectionOpen(id, open) {
+  const section = document.getElementById(id);
+  if (!section) {
+    console.warn(`PoseMan: 找不到控制面板區塊 ${id}`);
+    return;
+  }
+  section.open = open;
+}
+
+function openPanelSection(id) {
+  setPanelSectionOpen(id, true);
+}
+
 for (const name of JOINT_NAMES) {
   const opt = document.createElement('option');
   opt.value = name;
@@ -124,8 +154,29 @@ for (const [key, def] of Object.entries(OUTFIT_STYLES)) {
   opt.textContent = def.label;
   outfitSelect.appendChild(opt);
 }
+for (const [key, def] of Object.entries(BODY_PROFILES)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  bodyProfileSelect.appendChild(opt);
+}
+for (const [key, def] of Object.entries(HAIR_STYLES)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  hairStyleSelect.appendChild(opt);
+}
+for (const [key, def] of Object.entries(HAIR_COLORS)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = def.label;
+  hairColorSelect.appendChild(opt);
+}
 skinToneSelect.value = DEFAULT_APPEARANCE.skinTone;
 outfitSelect.value = DEFAULT_APPEARANCE.outfit;
+bodyProfileSelect.value = DEFAULT_APPEARANCE.bodyProfile;
+hairStyleSelect.value = DEFAULT_APPEARANCE.hairStyle;
+hairColorSelect.value = DEFAULT_APPEARANCE.hairColor;
 jointSelect.value = state.activeJointName;
 
 // ---------------------------------------------------------------- joint controls
@@ -173,36 +224,29 @@ resetPoseBtn.addEventListener('click', () => {
 function updateAppearance(patch) {
   if (!state.activeFigure) return;
   const next = sanitizeAppearance({ ...state.activeFigure.appearance, ...patch });
-  withHistory(() => state.activeFigure.setAppearance(next));
-  skinToneSelect.value = next.skinTone;
-  outfitSelect.value = next.outfit;
+  withHistory(() => {
+    // Rebuild rather than mutating shared geometry so body profile and hair
+    // changes are visible while pose, position and selection remain intact.
+    rebuildFigure(state.activeFigure, { appearance: next });
+  });
+  syncAppearanceControls(next);
   scheduleSave();
 }
 
 skinToneSelect.addEventListener('change', () => updateAppearance({ skinTone: skinToneSelect.value }));
 outfitSelect.addEventListener('change', () => updateAppearance({ outfit: outfitSelect.value }));
+bodyProfileSelect.addEventListener('change', () => updateAppearance({ bodyProfile: bodyProfileSelect.value }));
+hairStyleSelect.addEventListener('change', () => updateAppearance({ hairStyle: hairStyleSelect.value }));
+hairColorSelect.addEventListener('change', () => updateAppearance({ hairColor: hairColorSelect.value }));
 appearanceResetBtn.addEventListener('click', () => updateAppearance(DEFAULT_APPEARANCE));
 
 genderBtn.addEventListener('click', () => {
   if (!state.activeFigure) return;
   withHistory(() => {
-    const idx = figures.indexOf(state.activeFigure);
-    const pose = extractPose(state.activeFigure);
-    const pos = state.activeFigure.group.position.clone();
-    const oldGroup = state.activeFigure.group;
-    scene.remove(oldGroup);
-    state.activeFigure.dispose?.();
-    const m = buildMannequin({
+    rebuildFigure(state.activeFigure, {
       female: !state.activeFigure.female,
       appearance: state.activeFigure.appearance,
     });
-    m.setPose(pose);
-    m.group.position.copy(pos);
-    for (const mesh of m.pickMeshes) mesh.userData.figure = m;
-    scene.add(m.group);
-    figures[idx] = m;
-    if (transform.object === oldGroup) transform.attach(m.group);
-    setActiveFigure(m);
   });
   scheduleSave();
 });
@@ -222,14 +266,58 @@ moveBtn.addEventListener('click', () => {
   state.moveMode = document.body.classList.toggle('move');
   moveBtn.textContent = state.moveMode ? '結束移動' : '移動模式';
   controls.enabled = true;
-  if (!state.moveMode) transform.detach();
+  syncTransformTarget();
 });
 
-addBtn.addEventListener('click', () => {
-  withHistory(() => addFigure(figures.length % 2 === 1));
+function syncAppearanceControls(appearance) {
+  const safe = sanitizeAppearance(appearance);
+  skinToneSelect.value = safe.skinTone;
+  outfitSelect.value = safe.outfit;
+  bodyProfileSelect.value = safe.bodyProfile;
+  hairStyleSelect.value = safe.hairStyle;
+  hairColorSelect.value = safe.hairColor;
+}
+
+function refreshFigureSelect() {
+  const keep = state.activeFigure ? String(figures.indexOf(state.activeFigure)) : '';
+  figureSelect.innerHTML = '';
+  figures.forEach((f, i) => {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = `人物 ${i + 1} ・ ${f.female ? '女性' : '男性'}`;
+    figureSelect.appendChild(option);
+  });
+  figureSelect.value = keep;
+  removeFigureBtn.disabled = !canRemoveFigure(figures.length);
+  figureManageHint.textContent = !canRemoveFigure(figures.length) ? '目前只剩 1 位人物，無法再移除。' : '可切換目前人物或移除選取的人物。';
+  if (state.activeFigure) {
+    openPanelSection('figureSection');
+    openPanelSection('appearanceSection');
+  }
+  // Selecting a figure clears the prop selection in figures.js; mirror that
+  // state immediately in the prop controls so no stale slider remains active.
+  if (typeof syncPropControls === 'function') syncPropControls();
+  syncTransformTarget();
+}
+setFiguresChangeHandler(refreshFigureSelect);
+
+figureSelect.addEventListener('change', () => {
+  const f = figures[Number(figureSelect.value)];
+  if (!f) return;
+  transform.detach();
+  setActiveFigure(f);
+  syncAppearanceControls(f.appearance);
   scheduleSave();
 });
-removeBtn.addEventListener('click', () => {
+
+function addManagedFigure(female) {
+  withHistory(() => addFigure(female));
+  scheduleSave();
+}
+addMaleFigureBtn.addEventListener('click', () => addManagedFigure(false));
+addFemaleFigureBtn.addEventListener('click', () => addManagedFigure(true));
+removeFigureBtn.addEventListener('click', () => {
+  if (!canRemoveFigure(figures.length)) return;
   withHistory(removeFigure);
   scheduleSave();
 });
@@ -240,24 +328,112 @@ previewBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------- props UI
-propSelect.addEventListener('change', () => {
+function syncTransformTarget() {
+  if (!state.moveMode) {
+    transform.detach();
+    return;
+  }
+  const target = chooseTransformTarget({
+    moveMode: state.moveMode,
+    selectedProp: state.selectedProp,
+    activeFigure: state.activeFigure,
+  });
+  if (target) transform.attach(target);
+  else transform.detach();
+}
+
+function syncPropControls() {
+  const p = state.selectedProp;
+  const disabled = !p;
+  currentPropSelect.value = p ? String(props.indexOf(p)) : '';
+  propRotY.disabled = disabled;
+  propScale.disabled = disabled;
+  rotatePropBtn.disabled = disabled;
+  deletePropBtn.disabled = disabled;
+  if (!p) {
+    propRotY.value = '0';
+    propRotYVal.textContent = '0°';
+    propScale.value = '1';
+    propScaleVal.textContent = '1.00×';
+    return;
+  }
+  const deg = Math.round(p.group.rotation.y / DEG);
+  propRotY.value = String(Math.max(-180, Math.min(180, deg)));
+  propRotYVal.textContent = `${deg}°`;
+  const scale = clampPropScale(p.group.scale.x);
+  propScale.value = String(scale);
+  propScaleVal.textContent = `${scale.toFixed(2)}×`;
+}
+
+function refreshPropSelects(meta = undefined) {
+  const keep = state.selectedProp ? String(props.indexOf(state.selectedProp)) : '';
+  currentPropSelect.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = props.length ? '選擇目前物品…' : '尚無物品';
+  currentPropSelect.appendChild(placeholder);
+  props.forEach((p, i) => {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = `物品 ${i + 1} ・ ${getPropDefinition(p.type)?.label || '未知物品'}`;
+    currentPropSelect.appendChild(option);
+  });
+  currentPropSelect.value = keep;
+  syncPropControls();
+  if (meta?.bulk) setPanelSectionOpen('propsSection', false);
+  if (state.selectedProp) openPanelSection('propsSection');
+  syncTransformTarget();
+}
+setPropsChangeHandler(refreshPropSelects);
+
+currentPropSelect.addEventListener('change', () => {
+  const p = currentPropSelect.value === '' ? null : props[Number(currentPropSelect.value)];
+  setActiveProp(p || null);
+  // setActiveProp notifies the manager/UI; use one target-sync path so
+  // clearing the prop selection in move mode reattaches the active figure.
+  syncTransformTarget();
+  scheduleSave();
+});
+
+addPropBtn.addEventListener('click', () => {
   if (!propSelect.value) return;
   withHistory(() => addProp(propSelect.value));
   propSelect.value = '';
   scheduleSave();
 });
 
+for (const [input, value, format] of [
+  [propRotY, 'rotation', (v) => `${Math.round(v)}°`],
+  [propScale, 'scale', (v) => `${Number(v).toFixed(2)}×`],
+]) {
+  input.addEventListener('pointerdown', beginGesture);
+  input.addEventListener('keydown', beginGesture);
+  input.addEventListener('input', () => {
+    const p = state.selectedProp;
+    if (!p) return;
+    if (value === 'rotation') p.group.rotation.y = Number(input.value) * DEG;
+    else p.group.scale.setScalar(clampPropScale(input.value));
+    const display = value === 'rotation' ? Number(input.value) : clampPropScale(input.value);
+    if (value === 'rotation') propRotYVal.textContent = format(display);
+    else propScaleVal.textContent = format(display);
+    scheduleSave();
+  });
+  input.addEventListener('change', endGesture);
+}
+
 rotatePropBtn.addEventListener('click', () => {
   if (!state.selectedProp) return;
   withHistory(() => {
-    state.selectedProp.group.rotation.y += 45 * DEG;
+    state.selectedProp.group.rotation.y = normalizePropRotation(state.selectedProp.group.rotation.y + 45 * DEG);
   });
+  syncPropControls();
   scheduleSave();
 });
 
 deletePropBtn.addEventListener('click', () => {
   if (!state.selectedProp) return;
   withHistory(() => removeProp(state.selectedProp));
+  syncPropControls();
   scheduleSave();
 });
 
@@ -440,11 +616,11 @@ window.addEventListener('keydown', (e) => {
         scheduleSave();
       }
       break;
-    case 'escape':
+      case 'escape':
       if (state.moveMode) moveBtn.click();
       else {
         transform.detach();
-        state.selectedProp = null;
+        setActiveProp(null);
       }
       break;
     case '1':

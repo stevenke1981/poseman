@@ -1,21 +1,25 @@
 plan:
-  objective: 交付可操作、可持久化且不污染多人物材質的外觀調整切片。
+  objective: 交付 CHANGE-003 的可摺疊控制面板，降低長面板捲動並保持既有操作契約。
   tasks:
     - id: T1
-      task: 建立外觀 schema 與 walking skeleton
-      output: 有限膚色/服裝資料、sanitize 與獨立人物材質
-      verify: node appearance sanitize/material isolation smoke
+      task: 將面板分為七個原生 details/summary 區塊
+      output: 人物管理、姿勢與關節、人物外觀、姿勢工具、匯出參考圖、物品管理、場景檔案
+      verify: index 結構測試確認 section 數量、順序、summary 與既有 element id 唯一
     - id: T2
-      task: 更新人偶外觀與控制面板
-      output: 頭臉、髮型、服裝分件、手足、男女比例與外觀選單
-      verify: npm run build
+      task: 設定初始展開與自動展開行為
+      output: 前三區預設展開；選取物品自動開啟物品管理；切換人物自動開啟人物管理/外觀
+      verify: production UI callback/source review；待主代理瀏覽器驗收
     - id: T3
-      task: 接上持久化與相容處理
-      output: appearance 隨人物保存、匯入匯出，舊欄位回預設
-      verify: npm run check；待真人多人物/重整驗收
+      task: 補齊鍵盤 focus、窄螢幕與預覽樣式
+      output: summary focus-visible、原生鍵盤操作、手機/窄高度保留底部空間、preview 維持隱藏 panel
+      verify: npm run build/check；待主代理窄視窗與預覽驗收
     - id: T4
+      task: 更新 README、next-feature、CHANGE-003 evidence
+      output: 文件描述摺疊面板，驗收狀態保持 pending
+      verify: YAML/source review
+    - id: T5
       task: 主代理真人驗收與 baseline 判定
-      output: 瀏覽器操作、視覺與核心回歸證據
-      verify: 瀏覽器實際操作與 console error 檢查
+      output: 瀏覽器操作、鍵盤 focus、窄高度、預覽與既有功能回歸證據
+      verify: 主代理實際瀏覽器驗收
 status: completed
-note: T1-T4 已完成，詳見 acceptance/CHANGE-001-acceptance.yaml 與 baseline.yaml。
+note: CHANGE-002 and CHANGE-003 have passed automated, browser, visual, persistence, narrow-viewport, and review gates.

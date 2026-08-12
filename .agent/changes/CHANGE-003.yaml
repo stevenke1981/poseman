@@ -1,0 +1,47 @@
+id: CHANGE-003
+title: collapsible-control-panel-sections
+classification: feature
+risk: low
+status: accepted
+impact:
+  modules: index, ui, style, propsManager, persistence, README, tests
+  data_contract: no scene JSON contract changes; details open state and active prop selection are transient UI state
+  protected_flows: existing DOM ids, event listeners, figure/prop selection, preview mode, mobile bottom bar, keyboard operation
+  rollback: revert this change set; no destructive migration performed
+sections:
+  - id: figureSection
+    label: 人物管理
+    initial_open: true
+  - id: poseSection
+    label: 姿勢與關節
+    initial_open: true
+  - id: appearanceSection
+    label: 人物外觀
+    initial_open: true
+  - id: poseToolsSection
+    label: 姿勢工具
+    initial_open: false
+  - id: exportSection
+    label: 匯出參考圖
+    initial_open: false
+  - id: propsSection
+    label: 物品管理
+    initial_open: false
+  - id: sceneSection
+    label: 場景檔案
+    initial_open: false
+evidence:
+  - npm test (17 tests passed, including initial-open, bulk-prop-restore, global-id, DOM-reference, summary-order, and range-label coverage)
+  - npm run build (PASS)
+  - npm run check (PASS)
+  - bulk scene restore adds props with selection suppressed, preserving the three-section initial open state
+  - panel CSS constrains flex rows/selects and hides horizontal overflow in narrow widths
+  - source structure confirms existing control ids remain unique and unchanged
+acceptance:
+  status: PASS
+  browser: PASS
+  keyboard_focus: PASS
+  narrow_viewport: PASS
+  preview_mode: PASS
+  critical_errors: NONE
+  note: Main-agent and independent browser acceptance covered seven sections, exactly three initial open sections, keyboard operation, visible focus, smart prop expansion, 390x600 layout, no horizontal overflow, and preview hiding.

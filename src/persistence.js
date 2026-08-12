@@ -1,12 +1,17 @@
 import { grid } from './scene.js';
-import { state } from './state.js';
 import { figures, addFigure, setActiveFigure, extractPose } from './figures.js';
-import { props, addProp } from './propsManager.js';
+import { props, addProp, setActiveProp, notifyPropsChange } from './propsManager.js';
 import { transform } from './interaction.js';
 import { JOINT_NAMES } from './mannequin.js';
-import { PROP_TYPES } from './props.js';
+import { hasPropType } from './props.js';
 import { gridToggle } from './dom.js';
-import { SCENE_VERSION, serializeFigureRecord, sanitizeFigureRecord } from './sceneSchema.js';
+import {
+  SCENE_VERSION,
+  serializeFigureRecord,
+  sanitizeFigureRecord,
+  serializePropRecord,
+  sanitizePropRecord,
+} from './sceneSchema.js';
 
 const STORAGE_KEY = 'poseman-scene-v1';
 
@@ -15,13 +20,7 @@ export function serializeScene() {
     version: SCENE_VERSION,
     grid: grid.visible,
     figures: figures.map((f) => serializeFigureRecord(f, extractPose(f))),
-    props: props.map((p) => ({
-      type: p.type,
-      x: p.group.position.x,
-      y: p.group.position.y,
-      z: p.group.position.z,
-      rotY: p.group.rotation.y,
-    })),
+    props: props.map(serializePropRecord),
   };
 }
 
@@ -47,7 +46,7 @@ export function applyScene(data) {
   figures.length = 0;
   for (const p of props) p.group.removeFromParent();
   props.length = 0;
-  state.selectedProp = null;
+  setActiveProp(null);
 
   const version = Number(data?.version) || 1;
   if (version > SCENE_VERSION) {
@@ -77,13 +76,22 @@ export function applyScene(data) {
   }
 
   const rawProps = Array.isArray(data?.props)
-    ? data.props.filter((p) => p && typeof p === 'object' && PROP_TYPES[p.type])
+    ? data.props
+        .map(sanitizePropRecord)
+        .filter((p) => hasPropType(p.type))
     : [];
-  for (const pd of rawProps) addProp(pd.type, pd);
+  // Restore props without selecting the last record. Selection is transient
+  // UI state and a freshly loaded scene should keep the default panel sections
+  // collapsed until the user chooses an item.
+  for (const pd of rawProps) addProp(pd.type, pd, { select: false, notify: false });
 
   gridToggle.checked = data?.grid !== false;
   grid.visible = gridToggle.checked;
   setActiveFigure(figures[0]);
+  // Bulk scene replacement bypasses individual UI events while clearing and
+  // rebuilding arrays; force the manager callback once more so empty scenes
+  // cannot leave stale prop options or enabled controls behind.
+  notifyPropsChange({ bulk: true });
 }
 
 export function saveScene() {

@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { DEG, JOINT_NAMES } from './mannequin.js';
 import { PRESETS } from './poses.js';
-import { PROP_TYPES } from './props.js';
+import { hasPropType } from './props.js';
 import { state } from './state.js';
 import { figures, addFigure, removeFigureAt, syncSliders } from './figures.js';
 import { props, addProp, removeProp } from './propsManager.js';
 import { transform } from './interaction.js';
 import { scheduleSave } from './persistence.js';
 import { beginGesture, endGesture } from './history.js';
+import { normalizePropRotation, canRemoveFigure } from './sceneSchema.js';
 
 function selectedInfo() {
   const group = transform.object || (state.selectedProp && state.selectedProp.group);
@@ -130,13 +131,13 @@ export function applyActions(actions) {
       case 'removeFigure': {
         const i = figureIndex(a.figure);
         if (i < 0) return skip(`找不到人物 ${a.figure}`);
-        if (figures.length <= 1) return skip('至少需保留一個人物');
+        if (!canRemoveFigure(figures.length)) return skip('至少需保留一個人物');
         removeFigureAt(i);
         applied++;
         break;
       }
       case 'addProp':
-        if (!PROP_TYPES[a.type]) return skip(`未知物品類型 ${a.type}`);
+        if (!hasPropType(a.type)) return skip(`未知物品類型 ${a.type}`);
         addProp(a.type, a);
         applied++;
         break;
@@ -152,7 +153,7 @@ export function applyActions(actions) {
       case 'rotateProp': {
         const p = props[propIndex(a.prop)];
         if (!p) return skip(`找不到物品 ${a.prop}`);
-        p.group.rotation.y += (Number(a.deg) || 45) * DEG;
+        p.group.rotation.y = normalizePropRotation(p.group.rotation.y + (Number(a.deg) || 45) * DEG);
         applied++;
         break;
       }

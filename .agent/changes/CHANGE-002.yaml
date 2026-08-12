@@ -1,0 +1,42 @@
+id: CHANGE-002
+title: explicit-figure-prop-management-and-realistic-profiles
+classification: feature
+risk: medium
+status: accepted
+impact:
+  modules: mannequin, figures, props, propsManager, sceneSchema, persistence, interaction, ui, dom, main, index, style
+  data_contract: scene version 3 adds figure bodyProfile/hairStyle/hairColor and prop scale; v1/v2 prop records default scale to 1
+  protected_flows: joint picking/dragging, poses, multi-figure isolation, gender rebuild, move gizmo, localStorage/JSON, preview/export/AI, undo/redo
+  rollback: revert this change set; no destructive migration performed
+files:
+  - src/scene.js
+  - src/main.js
+  - src/mannequin.js
+  - src/figures.js
+  - src/props.js
+  - src/propsManager.js
+  - src/sceneSchema.js
+  - src/persistence.js
+  - src/interaction.js
+  - src/ai.js
+  - src/ui.js
+  - src/dom.js
+  - src/style.css
+  - index.html
+  - README.md
+  - tests/appearance.test.js
+  - .agent/project-intent.yaml
+  - .agent/current-plan.yaml
+evidence:
+  - npm test (12 tests passed)
+  - npm run build (PASS)
+  - npm run check (PASS)
+  - source review confirms indicator sphere removed and BoxHelper softened
+  - source review confirms prototype-safe prop lookup, centralized selected-prop writes, canonical rotation normalization, bulk scene UI notification, and pure manager/rebuild/history helpers used by production
+acceptance:
+  status: PASS
+  browser: PASS
+  visual: PASS
+  persistence: PASS
+  critical_errors: NONE
+  note: Main-agent browser acceptance covered figure add/remove/last-person guard, body and hair rebuild, prop add/select/rotation/scale, reload, move gizmo, undo, preview, and no orange indicator sphere.

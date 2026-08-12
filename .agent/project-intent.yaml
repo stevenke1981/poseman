@@ -1,30 +1,34 @@
 project: poseman
 intent:
   goal: 提供外觀清楚、可調整姿勢且可匯出的 Three.js 繪圖參考人偶。
-  user_outcome: 使用者可在多人物場景中調整膚色與服裝風格，並保存、匯入、匯出後繼續擺姿勢。
-  primary_user_scenario: 選取人物 → 調整外觀 → 切換人物/性別 → 存檔或重整 → 外觀與姿勢仍正確。
+  user_outcome: 使用者可在多人物場景中管理角色與繪圖道具，調整膚色、服裝、體態、髮型與髮色，並保存、匯入、匯出後繼續擺姿勢。
+  primary_user_scenario: 選取人物 → 新增/移除角色 → 調整外觀 → 新增/選取/縮放/旋轉物品 → 存檔或重整 → 外觀、姿勢與場景仍正確。
   in_scope:
     - procedural mannequin silhouette and face detail
     - finite per-figure appearance settings
+    - explicit figure and prop management controls
+    - procedural drawing-reference props and safe prop transforms
     - localStorage and scene JSON persistence
   out_of_scope:
     - custom texture uploads
     - photorealistic or sexualized anatomy
   constraints:
     - preserve joint picking, dragging, preview, export, and existing pose schema
+    - preserve v1/v2 scenes while writing scene v3 with safe prop scale defaults
     - no heavyweight test dependency
   assumptions:
-    - appearance is a finite skin-tone/outfit vocabulary rather than arbitrary RGB input
+    - appearance is a finite skin-tone/outfit/body/hair vocabulary rather than arbitrary values
   protected_behavior:
     - multi-figure placement and gender toggle preserve pose and position
     - old scenes without appearance fields load with defaults
+    - at least one figure remains in the scene; prop catalog selection does not add until confirmed
   acceptance:
     build_or_launch: PASS
     requested_user_scenario: PASS
     affected_regression: PASS
     visible_result: PASS
     critical_errors: NONE
-    evidence: npm test, npm run build, npm run check, in-app browser appearance/persistence/pose/preview acceptance
+    evidence: npm test/build/check, browser figure/prop/appearance/persistence/move/undo acceptance, accordion desktop/narrow/preview acceptance
 validation:
   status: passed
-  note: 2026-08-12 已由主代理完成瀏覽器實際操作、視覺與核心回歸驗收。
+  note: CHANGE-002 and the single CHANGE-003 auto-extension passed main-agent browser acceptance and independent code review on 2026-08-12.

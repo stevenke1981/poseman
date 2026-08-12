@@ -1,25 +1,39 @@
-id: BASELINE-20260812-001
+id: BASELINE-20260812-002
 status: passed
 accepted_features:
   - upgraded stylized male and female mannequin appearance
   - per-figure skin tone and outfit palette controls
   - scene v2 appearance persistence with v1 defaults
+  - explicit figure management with last-person guard
+  - body profile, hairstyle, and hair-color customization
+  - explicit prop catalog, selection, rotation, scaling, and removal
+  - floor lamp and sofa procedural reference props
+  - scene v3 prop scale persistence with v1/v2 compatibility
+  - seven accessible collapsible control-panel sections
 critical_user_flows:
   - select a figure and change its skin tone and outfit
   - switch figures without appearance leaking between them
   - switch gender while preserving pose, position, and appearance
   - reload and recover appearance from localStorage
   - apply pose presets and enter preview mode
+  - add and remove figures while retaining at least one
+  - add props, tune rotation and scale, then reload the scene
+  - use move mode and undo without stale selection or gizmo state
+  - operate the accordion by keyboard and on a narrow viewport
 protected_behavior:
   - joint selection and pose manipulation
   - multi-figure placement
   - preview and export controls
   - old scenes without appearance fields load with defaults
+  - joint picking continues without the orange wireframe indicator sphere
+  - prototype-like prop keys are rejected safely
+  - accordion state remains transient and outside scene JSON
 public_interfaces:
-  - scene JSON version 2 with optional figures[].appearance
+  - scene JSON version 3 with optional figures[].appearance and props[].scale
 data_compatibility:
   - scene version 1 remains readable
   - invalid appearance values fall back to defaults
+  - scene versions 1 and 2 default prop scale to 1
 environment:
   - Windows 2026-08-12
   - Node built-in test runner
@@ -28,3 +42,5 @@ known_limitations:
   - Three.js production chunk remains over Vite's 500 kB advisory threshold
 evidence:
   - .agent/acceptance/CHANGE-001-acceptance.yaml
+  - .agent/acceptance/CHANGE-002-acceptance.yaml
+  - .agent/acceptance/CHANGE-003-acceptance.yaml

@@ -1,10 +1,8 @@
 import './style.css';
-import * as THREE from 'three';
 import {
   renderer,
   scene,
   camera,
-  indicator,
   groundMark,
   markYPos,
   labelSprite,
@@ -19,7 +17,7 @@ import { syncHistory } from './history.js';
 import { figures } from './figures.js';
 import { props } from './propsManager.js';
 import { JOINT_LABELS } from './mannequin.js';
-import { PROP_TYPES } from './props.js';
+import { getPropDefinition } from './props.js';
 import { selInfo } from './dom.js';
 import './ui.js';
 
@@ -35,26 +33,9 @@ window.addEventListener('resize', () => {
 });
 
 // ---------------------------------------------------------------- render loop
-const tmpV = new THREE.Vector3();
 let lastSelText = null;
 function tick() {
   requestAnimationFrame(tick);
-  if (state.previewMode) {
-    indicator.visible = false;
-  } else if (state.selectedProp) {
-    indicator.position.set(
-      state.selectedProp.group.position.x,
-      0.12,
-      state.selectedProp.group.position.z,
-    );
-    indicator.visible = true;
-  } else if (state.activeFigure && state.activeFigure.joints[state.activeJointName]) {
-    state.activeFigure.joints[state.activeJointName].getWorldPosition(tmpV);
-    indicator.position.copy(tmpV);
-    indicator.visible = true;
-  } else {
-    indicator.visible = false;
-  }
   // ground reference marker (move mode): axis cross on the floor, vertical
   // height line and coordinate label for the selected object.
   const markTarget = transform.object || (state.selectedProp && state.selectedProp.group);
@@ -85,7 +66,8 @@ function tick() {
   }
   let selText = '';
   if (state.selectedProp) {
-    selText = `目前選取：物品 ${props.indexOf(state.selectedProp) + 1}（${PROP_TYPES[state.selectedProp.type].label}）`;
+    const def = getPropDefinition(state.selectedProp.type);
+    selText = `目前選取：物品 ${props.indexOf(state.selectedProp) + 1}（${def?.label || '未知物品'}）`;
   } else if (state.activeFigure) {
     selText = `目前選取：人物 ${figures.indexOf(state.activeFigure) + 1}・${JOINT_LABELS[state.activeJointName]}`;
   }

@@ -21,22 +21,39 @@
 
       <aside id="panel" class="ui-hide">
         <div id="selInfo"></div>
-        <label for="jointSelect">關節 Joint</label>
-        <select id="jointSelect"></select>
+        <details id="figureSection" open>
+          <summary>人物管理</summary>
+          <fieldset class="control-card">
+            <legend class="sr-only">人物管理</legend>
+          <label for="figureSelect">目前人物</label>
+          <select id="figureSelect" aria-label="目前人物"></select>
+          <div class="btnrow">
+            <button id="addMaleFigureBtn" type="button">新增男性</button>
+            <button id="addFemaleFigureBtn" type="button">新增女性</button>
+          </div>
+          <button id="removeFigureBtn" type="button">移除目前人物</button>
+          <small id="figureManageHint" class="muted-hint">至少保留 1 位人物。</small>
+          </fieldset>
+        </details>
+
+        <details id="poseSection" open>
+          <summary>姿勢與關節</summary>
+          <label for="jointSelect">關節 Joint</label>
+          <select id="jointSelect"></select>
 
         <div class="slider-row">
           <span>X</span>
-          <input type="range" id="rotX" min="-180" max="180" step="1" value="0" />
+          <input type="range" id="rotX" min="-180" max="180" step="1" value="0" aria-label="關節 X 軸旋轉角度" />
           <span id="rotXVal">0°</span>
         </div>
         <div class="slider-row">
           <span>Y</span>
-          <input type="range" id="rotY" min="-180" max="180" step="1" value="0" />
+          <input type="range" id="rotY" min="-180" max="180" step="1" value="0" aria-label="關節 Y 軸旋轉角度" />
           <span id="rotYVal">0°</span>
         </div>
         <div class="slider-row">
           <span>Z</span>
-          <input type="range" id="rotZ" min="-180" max="180" step="1" value="0" />
+          <input type="range" id="rotZ" min="-180" max="180" step="1" value="0" aria-label="關節 Z 軸旋轉角度" />
           <span id="rotZVal">0°</span>
         </div>
 
@@ -44,31 +61,48 @@
           <button id="resetJointBtn" type="button">重設關節</button>
           <button id="resetPoseBtn" type="button">重設姿勢</button>
         </div>
-        <div class="btnrow">
-          <button id="genderBtn" type="button">切換性別</button>
-          <button id="resetViewBtn" type="button">重設視角</button>
-        </div>
+          <div class="btnrow">
+            <button id="genderBtn" type="button">切換性別</button>
+            <button id="resetViewBtn" type="button">重設視角</button>
+          </div>
+        </details>
 
-        <label>人物外觀 Appearance</label>
-        <div class="appearance-row">
-          <label for="skinToneSelect">膚色</label>
-          <select id="skinToneSelect" aria-label="膚色"></select>
-        </div>
+        <details id="appearanceSection" open>
+          <summary>人物外觀</summary>
+          <div class="appearance-row">
+            <label for="skinToneSelect">膚色</label>
+            <select id="skinToneSelect" aria-label="膚色"></select>
+          </div>
         <div class="appearance-row">
           <label for="outfitSelect">服裝</label>
           <select id="outfitSelect" aria-label="服裝色彩風格"></select>
         </div>
-        <button id="appearanceResetBtn" type="button">重設外觀</button>
+        <div class="appearance-row">
+          <label for="bodyProfileSelect">體態</label>
+          <select id="bodyProfileSelect" aria-label="體態"></select>
+        </div>
+        <div class="appearance-row">
+          <label for="hairStyleSelect">髮型</label>
+          <select id="hairStyleSelect" aria-label="髮型"></select>
+        </div>
+        <div class="appearance-row">
+          <label for="hairColorSelect">髮色</label>
+          <select id="hairColorSelect" aria-label="髮色"></select>
+        </div>
+          <button id="appearanceResetBtn" type="button">重設外觀</button>
 
-        <label class="check-row" for="gridToggle">
-          <input type="checkbox" id="gridToggle" checked />
-          顯示地面格線
-        </label>
+          <label class="check-row" for="gridToggle">
+            <input type="checkbox" id="gridToggle" checked />
+            顯示地面格線
+          </label>
+        </details>
 
-        <label for="presetSelect">姿勢範本 Preset</label>
-        <select id="presetSelect">
-          <option value="">選擇姿勢…</option>
-        </select>
+        <details id="poseToolsSection">
+          <summary>姿勢工具</summary>
+          <label for="presetSelect">姿勢範本 Preset</label>
+          <select id="presetSelect">
+            <option value="">選擇姿勢…</option>
+          </select>
 
         <label for="customPoseSelect">自訂姿勢 Library</label>
         <input id="poseNameInput" placeholder="姿勢名稱（選填）" />
@@ -89,20 +123,22 @@
           <button id="mirrorAllBtn" type="button">鏡像全身</button>
           <button id="mirrorArmsBtn" type="button">鏡像手臂</button>
         </div>
-        <div class="btnrow">
-          <button id="mirrorLegsBtn" type="button">鏡像腿部</button>
-          <button id="copyLRBtn" type="button">左→右</button>
-          <button id="copyRLBtn" type="button">右→左</button>
-        </div>
+          <div class="btnrow">
+            <button id="mirrorLegsBtn" type="button">鏡像腿部</button>
+            <button id="copyLRBtn" type="button">左→右</button>
+            <button id="copyRLBtn" type="button">右→左</button>
+          </div>
+        </details>
 
-        <label>匯出 Export</label>
-        <select id="viewSelect">
-          <option value="current">目前視角</option>
-          <option value="front">正面</option>
-          <option value="side">側面</option>
-          <option value="back">背面</option>
-          <option value="top">俯視</option>
-        </select>
+        <details id="exportSection">
+          <summary>匯出參考圖</summary>
+          <select id="viewSelect">
+            <option value="current">目前視角</option>
+            <option value="front">正面</option>
+            <option value="side">側面</option>
+            <option value="back">背面</option>
+            <option value="top">俯視</option>
+          </select>
         <div class="btnrow">
           <select id="scaleSelect">
             <option value="1">1x</option>
@@ -114,32 +150,56 @@
             透明背景
           </label>
         </div>
-        <div class="btnrow">
-          <button id="export2Btn" type="button">匯出視角</button>
-          <button id="sheetBtn" type="button">四視拼圖</button>
-        </div>
+          <div class="btnrow">
+            <button id="export2Btn" type="button">匯出視角</button>
+            <button id="sheetBtn" type="button">四視拼圖</button>
+          </div>
+        </details>
 
-        <label for="propSelect">物品 Props</label>
-        <select id="propSelect">
-          <option value="">加入物品…</option>
-        </select>
+        <details id="propsSection">
+          <summary>物品管理</summary>
+          <fieldset class="control-card">
+            <legend class="sr-only">物品管理</legend>
+          <label for="propSelect">品項</label>
+          <div class="btnrow">
+            <select id="propSelect">
+              <option value="">選擇品項…</option>
+            </select>
+            <button id="addPropBtn" type="button">新增物品</button>
+          </div>
+          <label for="currentPropSelect">目前物品</label>
+          <select id="currentPropSelect" aria-label="目前物品"></select>
+          <div class="slider-row">
+            <span>Y 旋轉</span>
+            <input type="range" id="propRotY" min="-180" max="180" step="1" value="0" aria-label="物品 Y 軸旋轉角度" />
+            <span id="propRotYVal">0°</span>
+          </div>
+          <div class="slider-row">
+            <span>縮放</span>
+            <input type="range" id="propScale" min="0.25" max="3" step="0.05" value="1" aria-label="物品均勻縮放比例" />
+            <span id="propScaleVal">1.00×</span>
+          </div>
         <div class="btnrow">
           <button id="rotatePropBtn" type="button">旋轉物品</button>
-          <button id="deletePropBtn" type="button">刪除物品</button>
+          <button id="deletePropBtn" type="button">移除目前物品</button>
         </div>
+          </fieldset>
+        </details>
 
-        <label>檔案 Scene</label>
-        <div class="btnrow">
-          <button id="saveFileBtn" type="button">存檔</button>
-          <button id="loadFileBtn" type="button">讀檔</button>
-        </div>
-        <div class="btnrow">
-          <button id="undoBtn" type="button" title="Ctrl+Z">復原</button>
-          <button id="redoBtn" type="button" title="Ctrl+Y">重做</button>
-        </div>
-        <input type="file" id="fileInput" accept=".json,application/json" hidden />
+        <details id="sceneSection">
+          <summary>場景檔案</summary>
+          <div class="btnrow">
+            <button id="saveFileBtn" type="button">存檔</button>
+            <button id="loadFileBtn" type="button">讀檔</button>
+          </div>
+          <div class="btnrow">
+            <button id="undoBtn" type="button" title="Ctrl+Z">復原</button>
+            <button id="redoBtn" type="button" title="Ctrl+Y">重做</button>
+          </div>
+          <input type="file" id="fileInput" accept=".json,application/json" hidden />
+        </details>
 
-        <p id="tip">點選關節後拖曳或滑桿微調；「移動模式」直接拖曳人物／物品自由移動，或用方向軸 gizmo 精確移動。物品可旋轉／刪除。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳 = 旋轉視角。復原 Ctrl+Z／重做 Ctrl+Y。</p>
+        <p id="tip">點選關節後拖曳或用滑桿微調；人物與物品可在管理區切換、新增、移除。移動模式可拖曳人物／物品或用方向軸 gizmo 精確移動。AI：設定 OpenAI 相容 API 後以對話控制。空白處拖曳＝旋轉視角。復原 Ctrl+Z／重做 Ctrl+Y。</p>
       </aside>
 
       <div id="hint" class="ui-hide">拖曳關節擺姿勢 ・ 移動模式直接拖曳人物/物品自由移動 ・ 空白處旋轉視角</div>
@@ -164,10 +224,7 @@
       </div>
 
       <footer id="bottombar">
-        <div class="left-group">
-          <button id="addBtn" class="round ui-hide" type="button" title="加入人物">＋</button>
-          <button id="removeBtn" class="round ui-hide" type="button" title="移除人物">－</button>
-        </div>
+        <div class="left-group"></div>
         <div class="center-group">
           <button id="moveBtn" class="pill ui-hide" type="button">移動模式</button>
           <button id="previewBtn" class="pill" type="button">預覽模式</button>

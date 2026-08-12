@@ -1,0 +1,22 @@
+change: CHANGE-002
+date: 2026-08-12
+status: PASS
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: NONE
+evidence:
+  - npm test: 17/17 passed in final combined gate
+  - npm run build and npm run check: passed
+  - browser: orange wireframe reference sphere absent while joint controls remained usable
+  - browser: added female, changed body profile, hairstyle, hair color, skin, and outfit
+  - browser: removed figures until last-person guard disabled removal
+  - browser: added floor lamp and sofa, set 45 degree rotation and 1.40 scale
+  - browser: reload restored prop rotation and scale
+  - browser: move gizmo and undo kept selection and option counts synchronized
+  - independent code review: APPROVE
+limitations:
+  - mannequin remains a procedural stylized drawing reference rather than a photoreal scanned human

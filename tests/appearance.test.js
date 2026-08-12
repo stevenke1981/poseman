@@ -9,17 +9,43 @@ import {
 import {
   sanitizeFigureRecord,
   serializeFigureRecord,
+  sanitizePropRecord,
+  serializePropRecord,
+  clampPropScale,
+  normalizePropRotation,
+  canRemoveFigure,
+  captureFigureRebuildState,
+  sceneSnapshotsDiffer,
+  SCENE_VERSION,
 } from '../src/sceneSchema.js';
+import { buildProp, hasPropType } from '../src/props.js';
+import { chooseTransformTarget } from '../src/state.js';
 
 test('appearance sanitizer accepts finite options and rejects prototype keys', () => {
   assert.deepEqual(sanitizeAppearance({ skinTone: 'deep', outfit: 'sage' }), {
     skinTone: 'deep',
     outfit: 'sage',
+    bodyProfile: 'balanced',
+    hairStyle: 'short',
+    hairColor: 'espresso',
   });
   assert.deepEqual(sanitizeAppearance({ skin: 'tan', style: 'terracotta' }), {
     skinTone: 'tan',
     outfit: 'terracotta',
+    bodyProfile: 'balanced',
+    hairStyle: 'short',
+    hairColor: 'espresso',
   });
+  assert.deepEqual(
+    sanitizeAppearance({ bodyProfile: 'athletic', hairStyle: 'long', hairColor: 'auburn' }),
+    { ...DEFAULT_APPEARANCE, bodyProfile: 'athletic', hairStyle: 'long', hairColor: 'auburn' },
+  );
+  assert.deepEqual(
+    sanitizeAppearance({ bodyProfile: 'constructor', hairStyle: '__proto__', hairColor: 'toString' }),
+    DEFAULT_APPEARANCE,
+  );
+  const inherited = Object.create({ skinTone: 'deep', bodyProfile: 'athletic' });
+  assert.deepEqual(sanitizeAppearance(inherited), DEFAULT_APPEARANCE);
   assert.deepEqual(sanitizeAppearance({ skinTone: '__proto__', outfit: 'constructor' }), DEFAULT_APPEARANCE);
   assert.deepEqual(sanitizeAppearance({ skinTone: 'toString', outfit: 'hasOwnProperty' }), DEFAULT_APPEARANCE);
   assert.deepEqual(sanitizeAppearance(null), DEFAULT_APPEARANCE);
@@ -72,7 +98,13 @@ test('legacy figure and v2 scene record round-trip preserve safe appearance', ()
     const container = JSON.parse(JSON.stringify({ version: 2, figures: [source] }));
     assert.equal(container.version, 2);
     const roundTrip = sanitizeFigureRecord(container.figures[0], (pose) => pose);
-    assert.deepEqual(roundTrip.appearance, { skinTone: 'tan', outfit: 'graphite' });
+    assert.deepEqual(roundTrip.appearance, {
+      skinTone: 'tan',
+      outfit: 'graphite',
+      bodyProfile: 'balanced',
+      hairStyle: 'short',
+      hairColor: 'espresso',
+    });
     assert.deepEqual([roundTrip.x, roundTrip.y, roundTrip.z], [1.1, 0.4, -0.8]);
     assert.deepEqual(roundTrip.pose, source.pose);
   } finally {
@@ -111,4 +143,92 @@ test('default mannequin feet remain above ground plane', () => {
       figure.dispose();
     }
   }
+});
+
+test('body profile and hair options produce safe, distinct rebuilds', () => {
+  const base = buildMannequin({
+    female: false,
+    appearance: { bodyProfile: 'balanced', hairStyle: 'short', hairColor: 'espresso' },
+  });
+  const variant = buildMannequin({
+    female: false,
+    appearance: { bodyProfile: 'athletic', hairStyle: 'long', hairColor: 'auburn' },
+  });
+  try {
+    assert.notEqual(base.pickMeshes.length, variant.pickMeshes.length);
+    assert.deepEqual(variant.appearance, {
+      skinTone: 'warm',
+      outfit: 'indigo',
+      bodyProfile: 'athletic',
+      hairStyle: 'long',
+      hairColor: 'auburn',
+    });
+    const baseShoulder = base.joints.shoulderL.position.x;
+    const variantShoulder = variant.joints.shoulderL.position.x;
+    assert.ok(variantShoulder > baseShoulder);
+  } finally {
+    base.dispose();
+    variant.dispose();
+  }
+});
+
+test('prop v1/v2 defaults and v3 round-trip sanitize scale and rotation', () => {
+  assert.equal(SCENE_VERSION, 3);
+  assert.deepEqual(sanitizePropRecord({ type: 'chair', x: 1, rotY: 0 }), {
+    type: 'chair', x: 1, y: null, z: null, rotY: 0, scale: 1,
+  });
+  assert.equal(clampPropScale(-50), 0.25);
+  assert.equal(clampPropScale(99), 3);
+  const group = new THREE.Group();
+  group.position.set(1.2, 0.4, -0.8);
+  group.rotation.y = 7;
+  group.scale.setScalar(1.45);
+  const source = serializePropRecord({ type: 'sofa', group });
+  assert.equal(source.type, 'sofa');
+  assert.equal(source.scale, 1.45);
+  const roundTrip = sanitizePropRecord(JSON.parse(JSON.stringify(source)));
+  assert.deepEqual(roundTrip, { type: 'sofa', x: 1.2, y: 0.4, z: -0.8, rotY: 7 - Math.PI * 2, scale: 1.45 });
+});
+
+test('prop catalog rejects prototype keys without throwing', () => {
+  for (const key of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    assert.equal(hasPropType(key), false);
+    assert.doesNotThrow(() => buildProp(key));
+    assert.equal(buildProp(key), null);
+  }
+  assert.ok(buildProp('sofa'));
+});
+
+test('prop rotation stays canonical after repeated turns', () => {
+  const deg = (value) => (value * Math.PI) / 180;
+  assert.equal(Math.round((normalizePropRotation(deg(225)) * 180) / Math.PI), -135);
+  assert.equal(Math.round((normalizePropRotation(deg(-225)) * 180) / Math.PI), 135);
+  assert.equal(Math.round((normalizePropRotation(deg(180)) * 180) / Math.PI), -180);
+});
+
+test('scene helpers cover manager guard, rebuild payload, and history change decision', () => {
+  assert.equal(canRemoveFigure(0), false);
+  assert.equal(canRemoveFigure(1), false);
+  assert.equal(canRemoveFigure(2), true);
+  const figure = buildMannequin({ female: true, appearance: { bodyProfile: 'slender', hairStyle: 'bob' } });
+  try {
+    figure.group.position.set(1.2, 0.4, -0.8);
+    const payload = captureFigureRebuildState(figure, { chest: [3, 4, 5] });
+    assert.deepEqual(payload.position, { x: 1.2, y: 0.4, z: -0.8 });
+    assert.equal(payload.female, true);
+    assert.equal(payload.appearance.bodyProfile, 'slender');
+    assert.deepEqual(payload.pose, { chest: [3, 4, 5] });
+  } finally {
+    figure.dispose();
+  }
+  assert.equal(sceneSnapshotsDiffer({ figures: [] }, { figures: [] }), false);
+  assert.equal(sceneSnapshotsDiffer({ figures: [] }, { figures: [{}] }), true);
+});
+
+test('transform target helper prefers selected prop in move mode and detaches otherwise', () => {
+  const figure = { group: { id: 'figure' } };
+  const prop = { group: { id: 'prop' } };
+  assert.equal(chooseTransformTarget({ moveMode: false, activeFigure: figure }), null);
+  assert.equal(chooseTransformTarget({ moveMode: true, activeFigure: figure }).id, 'figure');
+  assert.equal(chooseTransformTarget({ moveMode: true, activeFigure: figure, selectedProp: prop }).id, 'prop');
 });

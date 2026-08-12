@@ -13,6 +13,11 @@ export const rotYVal = document.getElementById('rotYVal');
 export const rotZVal = document.getElementById('rotZVal');
 
 export const figInfo = document.getElementById('figInfo');
+export const figureSelect = document.getElementById('figureSelect');
+export const addMaleFigureBtn = document.getElementById('addMaleFigureBtn');
+export const addFemaleFigureBtn = document.getElementById('addFemaleFigureBtn');
+export const removeFigureBtn = document.getElementById('removeFigureBtn');
+export const figureManageHint = document.getElementById('figureManageHint');
 export const previewBtn = document.getElementById('previewBtn');
 export const moveBtn = document.getElementById('moveBtn');
 export const gridToggle = document.getElementById('gridToggle');
@@ -22,11 +27,18 @@ export const resetPoseBtn = document.getElementById('resetPoseBtn');
 export const genderBtn = document.getElementById('genderBtn');
 export const skinToneSelect = document.getElementById('skinToneSelect');
 export const outfitSelect = document.getElementById('outfitSelect');
+export const bodyProfileSelect = document.getElementById('bodyProfileSelect');
+export const hairStyleSelect = document.getElementById('hairStyleSelect');
+export const hairColorSelect = document.getElementById('hairColorSelect');
 export const appearanceResetBtn = document.getElementById('appearanceResetBtn');
 export const resetViewBtn = document.getElementById('resetViewBtn');
-export const addBtn = document.getElementById('addBtn');
-export const removeBtn = document.getElementById('removeBtn');
 
+export const currentPropSelect = document.getElementById('currentPropSelect');
+export const addPropBtn = document.getElementById('addPropBtn');
+export const propRotY = document.getElementById('propRotY');
+export const propRotYVal = document.getElementById('propRotYVal');
+export const propScale = document.getElementById('propScale');
+export const propScaleVal = document.getElementById('propScaleVal');
 export const rotatePropBtn = document.getElementById('rotatePropBtn');
 export const deletePropBtn = document.getElementById('deletePropBtn');
 

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { buildMannequin, DEG, sanitizeAppearance } from './mannequin.js';
 import { scene } from './scene.js';
-import { state } from './state.js';
+import { state, setSelectedProp } from './state.js';
 import { transform } from './interaction.js';
+import { canRemoveFigure, captureFigureRebuildState } from './sceneSchema.js';
 import {
   figInfo,
   rotX,
@@ -13,9 +14,23 @@ import {
   rotZVal,
   skinToneSelect,
   outfitSelect,
+  bodyProfileSelect,
+  hairStyleSelect,
+  hairColorSelect,
+  figureSelect,
 } from './dom.js';
 
 export const figures = [];
+let onFiguresChange = () => {};
+
+export function setFiguresChangeHandler(handler) {
+  onFiguresChange = typeof handler === 'function' ? handler : () => {};
+  onFiguresChange();
+}
+
+function notifyFiguresChange() {
+  onFiguresChange();
+}
 
 export function extractPose(f) {
   const pose = {};
@@ -41,12 +56,18 @@ export function syncSliders() {
 
 export function setActiveFigure(f) {
   state.activeFigure = f;
+  setSelectedProp(null);
+  notifyFiguresChange();
   if (!f) return;
   const idx = figures.indexOf(f);
   figInfo.textContent = `人物 ${idx + 1} / ${figures.length} ・ ${f.female ? '女' : '男'}`;
+  if (figureSelect) figureSelect.value = String(idx);
   const appearance = sanitizeAppearance(f.appearance);
   skinToneSelect.value = appearance.skinTone;
   outfitSelect.value = appearance.outfit;
+  bodyProfileSelect.value = appearance.bodyProfile;
+  hairStyleSelect.value = appearance.hairStyle;
+  hairColorSelect.value = appearance.hairColor;
   syncSliders();
 }
 
@@ -62,8 +83,27 @@ export function addFigure(female, appearance) {
   return m;
 }
 
+/** Rebuild one figure when a geometry-affecting appearance option changes. */
+export function rebuildFigure(oldFigure, { female = oldFigure?.female, appearance } = {}) {
+  const idx = figures.indexOf(oldFigure);
+  if (idx < 0 || !oldFigure) return null;
+  const previous = captureFigureRebuildState(oldFigure, extractPose(oldFigure));
+  const oldGroup = oldFigure.group;
+  const m = buildMannequin({ female: Boolean(female), appearance: appearance || previous.appearance });
+  m.setPose(previous.pose);
+  m.group.position.set(previous.position.x, previous.position.y, previous.position.z);
+  for (const mesh of m.pickMeshes) mesh.userData.figure = m;
+  scene.remove(oldGroup);
+  oldFigure.dispose?.();
+  scene.add(m.group);
+  figures[idx] = m;
+  if (transform.object === oldGroup) transform.attach(m.group);
+  setActiveFigure(m);
+  return m;
+}
+
 export function removeFigureAt(i) {
-  if (figures.length <= 1 || !figures[i]) return;
+  if (!canRemoveFigure(figures.length) || !figures[i]) return;
   const m = figures[i];
   if (transform.object === m.group) transform.detach();
   scene.remove(m.group);
@@ -75,7 +115,8 @@ export function removeFigureAt(i) {
 }
 
 export function removeFigure() {
-  removeFigureAt(figures.length - 1);
+  const i = figures.indexOf(state.activeFigure);
+  removeFigureAt(i >= 0 ? i : figures.length - 1);
 }
 
 // ---------------------------------------------------------------- mirror (T2-3)

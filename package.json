@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "test": "node --test tests/appearance.test.js",
+    "test": "node --test tests/*.test.js",
     "preview": "vite preview --host",
     "check": "vite build"
   },

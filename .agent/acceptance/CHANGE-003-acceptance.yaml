@@ -1,0 +1,21 @@
+change: CHANGE-003
+date: 2026-08-12
+status: PASS
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: NONE
+evidence:
+  - npm test: 17/17 passed
+  - browser: seven native details sections and exactly three initially open
+  - browser: summary keyboard toggle and visible focus passed
+  - browser: prop selection opened its section automatically
+  - browser: panel scroll width equaled client width
+  - browser: 390x600 narrow viewport retained panel and bottom-bar access
+  - browser: preview hid the panel and retained exit/export controls
+  - independent code review: APPROVE
+limitations:
+  - Three.js production chunk remains over Vite's 500 kB advisory threshold

@@ -35,7 +35,7 @@ export function buildSystemPrompt(snapshot) {
 {"op":"moveFigure","figure":0,"x":0,"y":0,"z":0}
 {"op":"addFigure","female":false}
 {"op":"removeFigure","figure":1}
-{"op":"addProp","type":"chair","x":0,"y":0,"z":1,"rotY":0}
+{"op":"addProp","type":"chair","x":0,"y":0,"z":1,"rotY":0,"scale":1}
 {"op":"moveProp","prop":0,"x":0,"y":0,"z":1}
 {"op":"rotateProp","prop":0,"deg":45}
 {"op":"removeProp","prop":0}

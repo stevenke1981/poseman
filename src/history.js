@@ -1,5 +1,6 @@
 // Undo / redo via serialized scene snapshots (T1-5).
 import { serializeScene, applyScene } from './persistence.js';
+import { sceneSnapshotsDiffer } from './sceneSchema.js';
 
 const LIMIT = 50;
 const undoStack = [];
@@ -27,7 +28,7 @@ export function endGesture() {
   if (!gestureOpen) return;
   gestureOpen = false;
   const now = JSON.stringify(serializeScene());
-  if (undoStack.length && now === undoStack[undoStack.length - 1]) undoStack.pop();
+  if (undoStack.length && !sceneSnapshotsDiffer(now, undoStack[undoStack.length - 1])) undoStack.pop();
   current = now;
 }
 

@@ -1,5 +1,7 @@
 evaluation_date: 2026-08-12
-autonomy: recommend_only
-candidate: responsive control panel sections
-evidence: browser acceptance showed the right panel is long and requires substantial scrolling after adding appearance controls
-reason_not_implemented: this request already used its one allowed automatic extension for the complete appearance-control slice
+autonomy: implemented_and_accepted
+candidate: collapsible control panel sections
+status: completed
+evidence: CHANGE-002 browser acceptance PASS; right panel remained long after adding appearance and scene-management controls
+scope: native details/summary accordion only; no scene JSON or persistence contract changes; bulk restore keeps prop selection transient
+owner_acceptance: PASS

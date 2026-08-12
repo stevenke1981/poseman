@@ -3,7 +3,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { renderer, scene, camera, controls } from './scene.js';
 import { state } from './state.js';
 import { figures, setActiveFigure, syncSliders } from './figures.js';
-import { props } from './propsManager.js';
+import { props, setActiveProp } from './propsManager.js';
 import { scheduleSave } from './persistence.js';
 import { beginGesture, endGesture } from './history.js';
 import { jointSelect } from './dom.js';
@@ -65,7 +65,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 
   const propHit = hit.object.userData.prop;
   if (propHit) {
-    state.selectedProp = propHit;
+    setActiveProp(propHit);
     if (state.moveMode) {
       transform.attach(propHit.group);
       controls.enabled = false;
@@ -78,7 +78,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   state.activeFigure = hit.object.userData.figure;
   state.activeJointName = hit.object.userData.joint;
   jointSelect.value = state.activeJointName;
-  state.selectedProp = null;
+  setActiveProp(null);
   setActiveFigure(state.activeFigure);
   if (state.moveMode) {
     transform.attach(state.activeFigure.group);

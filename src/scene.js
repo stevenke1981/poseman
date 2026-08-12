@@ -66,14 +66,6 @@ controls.minDistance = 0.8;
 controls.maxDistance = 12;
 controls.maxPolarAngle = Math.PI * 0.52;
 
-// selection indicator (wireframe sphere following the active joint / prop)
-export const indicator = new THREE.Mesh(
-  new THREE.SphereGeometry(0.085, 16, 12),
-  new THREE.MeshBasicMaterial({ color: 0xff9a2e, wireframe: true, transparent: true, opacity: 0.9 }),
-);
-indicator.visible = false;
-scene.add(indicator);
-
 // Ground reference marker for move mode: axis-aligned cross in gizmo colours
 // (X=red, Z=blue, Y=green) plus a coordinate label — readable by humans and
 // by vision/AI agents alike.
@@ -131,7 +123,7 @@ scene.add(groundMark);
 
 // T2-5: selection highlights (bounding boxes). Created once; retargeted via
 // setFromObject each frame while visible.
-export const figBox = new THREE.BoxHelper(new THREE.Object3D(), 0xff9a2e);
+export const figBox = new THREE.BoxHelper(new THREE.Object3D(), 0x8794c7);
 figBox.visible = false;
 scene.add(figBox);
 export const propBox = new THREE.BoxHelper(new THREE.Object3D(), 0x4d7dff);
