@@ -1,20 +1,20 @@
 plan:
-  objective: 交付 CHANGE-006 GLB 骨架診斷、嚴格手動映射與安全具名預設，保護 CHANGE-005。
+  objective: 交付 CHANGE-007 可下載、可編輯、可重新匯入的 PoseMan 預設 GLB 人體模板，並保護既有授權與骨架安全邊界。
   tasks:
-    - id: C6-T1
-      task: 建立 parse/inspect/strict mapping walking skeleton
-      output: 實際 SkinnedMesh skeleton diagnostics and manual mapping validator
-      verify: glbImporter focused tests
-    - id: C6-T2
-      task: 接入 17 行可存取 UI 與 bounded mapping presets
-      output: diagnosis panel, dropdown editor, localStorage preset actions
-      verify: structure tests and root browser workflow
-    - id: C6-T3
-      task: 保護 v5 hydrate、取消釋放與 opaque fixture
-      output: mapping-priority hydration, generation disposal, CC0 opaque GLB
-      verify: scene and resource tests
-    - id: C6-T4
-      task: 回歸與真人驗收
-      output: gates evidence, independent review, and root browser acceptance
-      verify: npm test/build/check/audit/diff-check and root browser
-status: completed
+    - id: C7-T1
+      task: 建立標準 17 關節 GLB 模板 Walking Skeleton
+      output: self-contained CC0 GLB with neutral humanoid mesh, stable joint names, hierarchy, skin weights, and metadata
+      verify: generator determinism, bounded GLB inspection, automatic 17/17 mapping
+    - id: C7-T2
+      task: 接入可存取的下載入口與模板說明
+      output: visible download control, stable public path, license and editing contract
+      verify: structure tests and real browser download
+    - id: C7-T3
+      task: 驗證下載到重新匯入的完整流程
+      output: downloaded template imports as a licensed external figure and remains poseable after reload
+      verify: root browser download/upload/pose/reload acceptance
+    - id: C7-T4
+      task: 獨立審查、回歸、Baseline、commit 與 push
+      output: accepted CHANGE-007 evidence and protected baseline
+      verify: tests/build/check/audit/diff-check, reviewer approval, remote hash match
+status: complete

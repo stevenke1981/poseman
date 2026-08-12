@@ -446,7 +446,9 @@ export function validateGltfJson(gltf, limits = GLB_LIMITS) {
 const ALIASES = Object.freeze({
   hips: ['hips', 'pelvis', 'root', 'mixamorighips'],
   spine: ['spine', 'spine1', 'spine001', 'lowerback', 'lumbar'],
-  chest: ['spine2', 'spine3', 'spine002', 'spine003', 'chest', 'upperchest', 'torso'],
+  // Mesh2Motion's UE-style rig uses spine_01/02/03. spine_03 is the chest
+  // pivot; keep spine_02 out of this alias so the mapping follows hierarchy.
+  chest: ['spine03', 'spine2', 'spine02', 'spine3', 'spine003', 'chest', 'upperchest', 'torso'],
   neck: ['neck', 'cervical'],
   head: ['head', 'skull'],
   // PoseMan's shoulder is the upper-arm pivot (not a clavicle); elbow is the

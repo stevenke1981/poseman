@@ -10,6 +10,7 @@
 - **姿勢範本**：站立、行走、跑步、坐下、揮手、思考
 - **多人物**：人物管理區可切換目前人物、新增男性／女性、移除目前人物（至少保留 1 人）；切換性別會保留目前姿勢與位置
 - **授權 GLB 人體匯入**：人物管理接受 `.glb` only，匯入前必須填資產名稱、選自有／CC0／CC BY 4.0／其他授權，並勾選「我有權使用並已核對授權」。CC BY／其他需要作者與 https 來源或授權說明。GLB 會檢查 magic/version、JSON、大小、外部 URI、節點／網格／骨骼／頂點上限，並以 Mixamo、Blender、VRM 常見命名映射 17 個 PoseMan 關節。
+- **預設 GLB 人體**：人物管理提供已釘選 commit 的 Mesh2Motion `human-male.glb` 下載入口（上游聲明 3D 模型／骨架／動畫為 CC0）。下載不需要授權確認；在 Blender 等工具編輯後再匯入時，仍須填寫並核對授權。
 - **移動模式**：直接拖曳人物／物品在三維空間自由移動（X/Y/Z，可停放空中任意高度），或以 TransformControls gizmo 沿任一軸／平面精確移動；地面顯示軸色十字基準（X紅/Z藍/Y綠）＋垂直高度線與即時座標標籤（人與 AI/vision agent 皆可直讀）
 - **物品元件庫**：椅子、桌子、長凳、木箱、球、台座、落地燈、沙發；先選品項再按「新增物品」，可切換目前物品、調整 Y 旋轉與 0.25–3 倍等比縮放、移除物品
 - **預覽模式**：隱藏所有 UI 與選取框，得到乾淨畫面
@@ -47,6 +48,10 @@
 GLB 匯入是使用者主動提供的本機檔案；PoseMan 不替使用者判定第三方授權是否合法。使用者必須自行核對資產來源與授權條件並負責其用途。支援的常見骨架命名包含 Mixamo（`mixamorig:Hips`、`LeftArm`、`LeftForeArm` 等）、Blender（`upper_arm.L`、`forearm.L` 等）、VRM/通用 `hips`、`spine`、`chest`、`neck`、`head`、左右上臂／前臂／手、大腿／小腿／腳。缺少核心關節、SkinnedMesh 或使用外部 URI 的 GLB 會被拒絕，不會清空現場。匯入人物不播放動畫，姿勢控制是相對於原始 rest rotation 的 delta。每個 accessor、sparse payload 與圖片 encoded bytes 都受上限保護；圖片只接受可辨識的 PNG/JPEG/WebP header，未知格式（含 AVIF）會 fail closed。圖片 bufferView 僅接受 GLB BIN 或 `data:` buffer 的宣告來源，並限制所有圖片合計解碼像素（33,554,432）與估算解碼記憶體（128 MiB），避免多張各自合規的 image bomb。取消中的 async 匯入不刪除可能共用的 IndexedDB SHA-256 record。
 匯入後會先顯示實際 SkinnedMesh skeleton 的骨數、17 個 PoseMan 關節命中／缺失／重複／未使用診斷。自動映射完整時可直接建立人物；缺失或使用者勾選手動映射時，需在 17 行下拉選單中指定同一 skeleton 的唯一骨 identity，否則不會建立人物。每個 rig 另以不依賴 skeleton array index 的穩定 selector（骨階層與關聯 SkinnedMesh path fingerprint）識別；場景 v5 的 `assetRef.mapping` 與 `assetRef.skeletonSelector` 會在重整時優先套用到同一 rig，失效時安全回退可用的完整 auto rig。映射預設只以有限長度文字保存於 localStorage，絕不保存 GLB bytes。`fixtures/opaque_humanoid/opaque-humanoid.glb` 是本專案自行生成的 CC0 手動映射驗收資產。
 
+### 預設人體資產來源與契約
+
+`public/templates/poseman-default-human.glb` 是 Mesh2Motion `human-male.glb` 在 commit `05fadfd7a513d45e8b7504e84de5c3497d73c9d0` 的 unchanged bundle，大小 `534004` bytes、SHA-256 `c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019`。完整來源、CC0 證據與 opt-in 更新命令見 [`public/templates/poseman-default-human.PROVENANCE.md`](public/templates/poseman-default-human.PROVENANCE.md)。它是 self-contained GLB（含內嵌圖片、無外部 URI），匯入時會以骨架安全上限、圖片 header/像素與 accessor 限制保護。上游 UE-style 骨架使用 `spine_01`、`spine_02`、`spine_03`，其中 `spine_03` 依層級映射為 PoseMan `chest`；PoseMan 精確 17 關節、座標與編輯限制見 [`docs/POSEMAN-GLB-JOINT-CONTRACT.md`](docs/POSEMAN-GLB-JOINT-CONTRACT.md)。預設下載僅是檔案取得，不替使用者判定後續使用權。
+
 ## AI 設定
 
 點底欄「AI」開啟對話視窗，點「⚙」填入：
@@ -64,6 +69,8 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # Node 內建外觀／場景 schema 回歸測試
 node scripts/generate_fixture.mjs # 產生本專案自有 CC0 mini/opaque humanoid GLB fixtures
+node scripts/fetch_default_human.mjs # opt-in 網路更新：驗證 pinned size/SHA（不寫檔）
+node scripts/fetch_default_human.mjs --write # opt-in 更新 public/templates binary
 ```
 
 Node.js 需求：`^20.19.0 || >=22.12.0`（目前開發環境 Node 24.15）。圖片驗證會在 GLTFLoader 前拒絕未知格式，PNG/JPEG/WebP 單邊不得超過 8192、單圖與合計像素不得超過 33,554,432、估算合計 RGBA 解碼記憶體不得超過 128 MiB，且會限制 encoded image bytes；壓縮圖片實際解碼後的記憶體仍由瀏覽器解碼器管理。

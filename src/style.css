@@ -267,6 +267,32 @@ input[type="range"] {
   font-size: 0.85rem;
 }
 
+.template-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.2rem;
+  box-sizing: border-box;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #aeb9ff;
+  border-radius: 8px;
+  background: #31375a;
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+
+.template-download:hover {
+  background: #3b4472;
+}
+
+.template-download:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
 .external-figure-card input,
 .external-figure-card select,
 .external-figure-card textarea {

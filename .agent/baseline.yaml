@@ -1,4 +1,4 @@
-id: BASELINE-20260812-005
+id: BASELINE-20260813-006
 status: passed_with_limits
 accepted_features:
   - upgraded stylized male and female mannequin appearance
@@ -12,6 +12,8 @@ accepted_features:
   - browser-local SHA-256 IndexedDB GLB storage and scene v5 asset references
   - actual-skeleton diagnostics with strict 17-joint manual mapping and named local presets
   - stable multi-rig skeleton selectors persisted through scene v5 reloads
+  - bundled unchanged Mesh2Motion CC0 default human GLB with pinned provenance, license, size, and SHA-256
+  - accessible default-human download that round-trips through license confirmation, automatic 17-joint mapping, pose editing, and IndexedDB reload
   - missing-asset warning that preserves the rest of the scene
   - Vite 8.2.1 development and production build pipeline
 critical_user_flows:
@@ -19,6 +21,7 @@ critical_user_flows:
   - add, remove, position, pose, and reload figures and props
   - confirm asset rights, import a valid licensed GLB, pose its mapped skeleton, and reload it from IndexedDB
   - diagnose an opaque-name rig, map all 17 joints, reject duplicate identities, save a preset, and reload the selected rig
+  - download the bundled licensed default human, verify rights, import it with 17/17 automatic mapping, pose it, and retain it after reload
   - reject malformed, oversized, external-URI, incomplete-rig, or unconfirmed GLB input
   - load scene v1-v4 with safe defaults and scene v5 with external-asset references
   - keep other figures usable and show a warning when an external asset is unavailable
@@ -51,3 +54,4 @@ evidence:
   - .agent/acceptance/CHANGE-004-acceptance.yaml
   - .agent/acceptance/CHANGE-005-acceptance.yaml
   - .agent/acceptance/CHANGE-006-acceptance.yaml
+  - .agent/acceptance/CHANGE-007-acceptance.yaml

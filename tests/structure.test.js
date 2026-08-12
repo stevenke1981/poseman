@@ -245,6 +245,24 @@ test('GLB import form is .glb-only, acknowledged, and visibly reports status', (
   assert.equal(htmlIds.get('glbSkeletonDiagnostic')?.[0]?.attrs.get('role'), 'status');
 });
 
+test('GLB template download is public, accessible, and requires no import confirmation', () => {
+  const link = htmlIds.get('downloadGlbTemplateLink')?.[0];
+  assert.equal(link?.name, 'a');
+  assert.equal(link?.attrs.get('href'), '/templates/poseman-default-human.glb');
+  assert.equal(link?.attrs.get('download'), 'poseman-default-human.glb');
+  const linkBlock = html.match(/<a\s+id="downloadGlbTemplateLink"[\s\S]*?<\/a>/)?.[0] || '';
+  assert.match(linkBlock, /下載預設人體 GLB（Mesh2Motion CC0）/);
+  assert.match(html, /Mesh2Motion 固定版本來源檔/);
+  assert.match(html, /LICENSE-CC0\.MD/);
+  assert.equal(fs.existsSync(path.join(here, '..', 'public', 'templates', 'poseman-default-human.glb')), true);
+  assert.equal(fs.existsSync(path.join(here, '..', 'public', 'templates', 'poseman-default-human.PROVENANCE.md')), true);
+  assert.equal(fs.existsSync(path.join(here, '..', 'public', 'templates', 'poseman-default-human.LICENSE-CC0.md')), true);
+  const fetchScript = fs.readFileSync(path.join(here, '..', 'scripts', 'fetch_default_human.mjs'), 'utf8');
+  assert.match(fetchScript, /05fadfd7a513d45e8b7504e84de5c3497d73c9d0/);
+  assert.match(fetchScript, /c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019/);
+  assert.match(fetchScript, /--write/);
+});
+
 test('HTML ids are globally unique and every centralized DOM reference resolves exactly once', () => {
   for (const [id, nodes] of htmlIds) {
     assert.equal(nodes.length, 1, `duplicate HTML id: ${id}`);

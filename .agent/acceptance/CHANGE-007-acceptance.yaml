@@ -1,0 +1,20 @@
+change: CHANGE-007
+date: 2026-08-13
+status: passed
+checks:
+  build_or_launch: PASS
+  requested_user_scenario: PASS
+  affected_regression: PASS
+  critical_flows: PASS
+  visible_result: PASS
+  critical_errors: PASS
+evidence:
+  - real in-app browser downloaded /templates/poseman-default-human.glb to disk; exact 534004-byte SHA-256 matched c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019
+  - import remained blocked until the explicit asset-rights confirmation was checked
+  - licensed upload reported Mannequin, 66 bones, automatic 17/17 mapping, no missing or duplicate mapped joints
+  - imported Mesh2Motion CC0 figure rendered as a visible humanoid, accepted a 25-degree head pose, and restored that pose after reload from IndexedDB
+  - source UI links directly to the pinned GLB file and pinned CC0 license
+  - npm test 51/51, npm run build, npm run check, npm audit --audit-level=high, fetch verification, and git diff --check passed
+limitations:
+  - imported animation playback is not included
+  - Three.js remains above Vite's 500 kB advisory

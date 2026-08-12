@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -180,6 +181,16 @@ test('Mixamo aliases map to all 17 PoseMan joints and reject incomplete rigs', (
   assert.equal(mapSkeletonBones(names.slice(0, -1).map((name) => ({ name }))).complete, false);
 });
 
+test('chest alias keeps legacy spine2 priority when spine2 and spine3 coexist', () => {
+  const mapping = mapSkeletonBones(['spine', 'spine2', 'spine3'].map((name) => ({ name })));
+  assert.equal(mapping.mapping.chest, 'spine2');
+});
+
+test('chest alias selects Mesh2Motion spine_03 ahead of spine_02', () => {
+  const mapping = mapSkeletonBones(['spine_01', 'spine_02', 'spine_03'].map((name) => ({ name })));
+  assert.equal(mapping.mapping.chest, 'spine_03');
+});
+
 test('inspect reports complete, missing, duplicate, and unused bones for one actual skeleton', () => {
   const complete = fixtureFigure();
   const diagnosis = inspectImportedGltf({ scene: complete.scene });
@@ -224,6 +235,65 @@ test('committed opaque CC0 fixture parses through the bounded GLB inspection pat
     assert.equal(inspection.selected.missing.length, 17);
   } finally {
     disposeParsedGltf(inspection.gltf);
+  }
+});
+
+test('pinned Mesh2Motion CC0 humanoid is exact, bounded, auto-maps 17 joints, and has provenance', async () => {
+  const templatePath = path.join(process.cwd(), 'public', 'templates', 'poseman-default-human.glb');
+  const licensePath = path.join(process.cwd(), 'public', 'templates', 'poseman-default-human.PROVENANCE.md');
+  const licenseTextPath = path.join(process.cwd(), 'public', 'templates', 'poseman-default-human.LICENSE-CC0.md');
+  assert.equal(fs.existsSync(templatePath), true);
+  assert.equal(fs.existsSync(licensePath), true);
+  assert.equal(fs.existsSync(licenseTextPath), true);
+  assert.match(fs.readFileSync(licensePath, 'utf8'), /CC0/);
+  assert.match(fs.readFileSync(licensePath, 'utf8'), /c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019/);
+  assert.match(fs.readFileSync(licenseTextPath, 'utf8'), /CC0 1\.0 Universal/);
+  const after = fs.readFileSync(templatePath);
+  assert.equal(after.byteLength, 534004);
+  assert.equal(createHash('sha256').update(after).digest('hex'), 'c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019');
+
+  const previousSelf = globalThis.self;
+  const previousDocument = globalThis.document;
+  class FakeImage {
+    constructor() { this.width = 1; this.height = 1; this.naturalWidth = 1; this.naturalHeight = 1; this.listeners = new Map(); }
+    addEventListener(type, listener) { this.listeners.set(type, listener); }
+    removeEventListener(type) { this.listeners.delete(type); }
+    set src(value) { this._src = value; queueMicrotask(() => this.listeners.get('load')?.call(this)); }
+  }
+  globalThis.self = globalThis;
+  globalThis.document = { createElementNS: () => new FakeImage() };
+  let inspection = null;
+  try {
+    inspection = await inspectGlbArrayBuffer(after.buffer.slice(after.byteOffset, after.byteOffset + after.byteLength));
+    assert.equal(inspection.selected.boneCount, 66);
+    assert.equal(inspection.mapping.chest, 'spine_03');
+    assert.equal(inspection.complete, true);
+    assert.equal(inspection.selected.hit.length, 17);
+    assert.deepEqual(inspection.selected.missing, []);
+    assert.deepEqual(inspection.selected.duplicate, []);
+    assert.equal(inspection.gltf.animations?.length || 0, 0);
+    assert.equal(inspection.gltf.parser?.json?.buffers?.[0]?.uri, undefined);
+    const figure = createImportedFigure(inspection.gltf, {
+      mapping: inspection.mapping,
+      skeletonSelector: inspection.selectedSkeletonSelector,
+      assetName: 'Mesh2Motion human-male',
+      license: { licenseType: 'cc0', assetName: 'Mesh2Motion human-male', confirmed: true },
+    });
+    try {
+      figure.group.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(figure.group);
+      assert.ok(bounds.min.y >= -1e-5, `default human ground=${bounds.min.y}`);
+      assert.ok(bounds.max.y - bounds.min.y <= 1.73, `default human height=${bounds.max.y - bounds.min.y}`);
+      assert.equal(Object.keys(figure.mapping).length, 17);
+    } finally {
+      figure.dispose();
+    }
+  } finally {
+    if (inspection?.gltf) disposeParsedGltf(inspection.gltf);
+    if (previousSelf === undefined) delete globalThis.self;
+    else globalThis.self = previousSelf;
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
   }
 });
 

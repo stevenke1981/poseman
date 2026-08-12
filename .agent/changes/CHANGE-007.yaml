@@ -1,0 +1,29 @@
+id: CHANGE-007
+title: PoseMan 預設 GLB 人體資產
+status: accepted
+classification: feature_and_interoperability_template
+risk: medium
+impact:
+  - bundles the unchanged Mesh2Motion human-male.glb from a pinned upstream commit
+  - provides provenance and a documented standard 17-joint rig contract for external editing tools
+  - reuses the existing licensed GLB import, validation, mapping, and IndexedDB paths
+scope:
+  - pinned Mesh2Motion CC0 GLB (size 534004, SHA-256 c7c445f4309d8883667ca9f85ef6ba226c71f492c827af115c46c52bc450a019) bundled unchanged
+  - source URL https://raw.githubusercontent.com/Mesh2Motion/mesh2motion-app/05fadfd7a513d45e8b7504e84de5c3497d73c9d0/static/models-variation/human-male.glb at commit 05fadfd7a513d45e8b7504e84de5c3497d73c9d0
+  - exact PoseMan 17-joint mapping, hierarchy diagnostics, and safe UE spine_03 chest alias
+  - visible accessible download entry in the authorized GLB import card
+  - provenance/license evidence, opt-in hash-verified fetch script, editing guide, and round-trip tests
+protected:
+  - CHANGE-005 untrusted GLB limits, license confirmation, local-only binary storage, and scene v5 compatibility
+  - CHANGE-006 diagnostics, manual mapping, stable skeleton selectors, request cancellation, and resource cleanup
+  - procedural figures, props, pose tools, preview, and export
+out_of_scope:
+  - downloading any unpinned or unlicensed third-party asset, runtime network fetch, or source binary mutation
+  - animation clips, source Blender project, automatic mesh replacement, or online upload
+rollback:
+  - revert CHANGE-007 commit; existing imported assets and scene v5 records remain valid
+verification:
+  - exact bundled size/SHA, bounded GLB/image/accessor validation, and opt-in fetch hash verification
+  - automatic 17/17 mapping (including spine_03→chest) and imported figure pose/ground/disposal tests
+  - root browser download, upload, license confirmation, pose, and reload
+acceptance: .agent/acceptance/CHANGE-007-acceptance.yaml
